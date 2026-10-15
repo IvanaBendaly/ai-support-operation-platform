@@ -1,0 +1,32 @@
+name: Checks
+on: [push, pull_request]
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: northstar
+          POSTGRES_PASSWORD: ci-only-password
+          POSTGRES_DB: northstar_test
+        ports: ["5432:5432"]
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 3s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pip install -r backend/requirements.lock && pip install --no-deps -e backend
+      - run: ruff check . && ruff format --check . && pytest
+        working-directory: backend
+        env:
+          NORTHSTAR_TEST_DATABASE_URL: postgresql+psycopg://northstar:ci-only-password@localhost:5432/northstar_test
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '24' }
+      - run: npm install --global pnpm@11.25.0
+      - run: pnpm install --frozen-lockfile && pnpm test && pnpm build
+        working-directory: frontend
