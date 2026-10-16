@@ -13,10 +13,14 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8,<10", "httpx2>=2,<3", "ruff>=0.9,<1"]
+dev = ["pytest>=8,<10", "httpx2>=2,<3", "ruff>=0.9,<1",
+       "setuptools>=75,<83", "wheel>=0.48,<1"]
 
 [tool.setuptools.packages.find]
 include = ["northstar*"]
+
+[tool.setuptools.package-data]
+northstar = ["migrations/script.py.mako"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

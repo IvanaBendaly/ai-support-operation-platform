@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-type Readiness = { status: string; database: string; schema: string };
+type Readiness = { status: string; database: string; schema: string; environment: string; version: string };
 
 export default function App() {
   const [ready, setReady] = useState<Readiness | null>(null);
@@ -12,6 +12,9 @@ export default function App() {
       const response = await fetch('/api/ready', { signal: AbortSignal.timeout(8000) });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error?.message || 'The service is unavailable.');
+      if (data.status !== 'ready' || data.database !== 'connected' || typeof data.schema !== 'string') {
+        throw new Error('The service returned an invalid readiness response.');
+      }
       setReady(data);
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Unable to connect.');
@@ -21,9 +24,9 @@ export default function App() {
   return <div className="workspace">
     <aside><a className="brand" href="/" aria-label="Northstar Cloud home"><span className="logo">✦</span> Northstar<span className="cloud">CLOUD</span></a>
       <p className="nav-label">SUPPORT OPERATIONS</p><a className="nav-current" href="#overview">◈ &nbsp; Overview</a>
-      <div className="sidebar-footer"><span className="avatar">NC</span><div>Development workspace<small>Foundation release</small></div></div>
+      <div className="sidebar-footer"><span className="avatar">NC</span><div>Northstar workspace<small>Foundation release</small></div></div>
     </aside>
-    <main id="overview"><header><span>Workspace / Overview</span><span className="tag">Development</span></header>
+    <main id="overview"><header><span>Workspace / Overview</span><span className="tag">{ready?.environment || 'Connecting'}</span></header>
       <div className="page-heading"><p className="eyebrow">NORTHSTAR CLOUD</p><h1>Support operations</h1><p>A reliable foundation for policy-grounded customer support.</p></div>
       <section className="status-card" aria-labelledby="service-title"><div className="card-heading"><div><p className="eyebrow">SYSTEM STATUS</p><h2 id="service-title">Service readiness</h2></div><button onClick={() => void refresh()} disabled={loading}>{loading ? 'Checking…' : 'Check again'}</button></div>
         {loading && <p role="status">Checking the API and database…</p>}

@@ -22,3 +22,11 @@ This mapping is a working checklist, not a claim of passed tests.
 | C16 | Fresh install, Compose, migration/seed, walkthrough, documentation and screenshots |
 
 No test listed here is evidence until its execution is recorded in the tracker.
+
+C01 extensions (2026-10-16): `test_configuration.py` covers typed profiles,
+provider references, invalid origins, real Uvicorn startup failure, malformed
+environment encoding, and migration failure. `test_packaging.py` builds and
+installs a wheel into an isolated directory, upgrades an empty test database,
+checks readiness and schema drift, then downgrades. `scripts/tests/test_dev_command.py`
+covers missing Docker and the mandatory-PostgreSQL quality gate. The frontend
+also rejects malformed HTTP-success readiness payloads.

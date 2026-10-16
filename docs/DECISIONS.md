@@ -8,6 +8,9 @@
 | D04 | React/TypeScript/Vite, plain CSS | Small dependency surface and an accessible, consistent dashboard. |
 | D05 | Separate liveness and readiness | Database failure must not be reported as healthy readiness. |
 | D06 | Explicit environment configuration, secret-safe errors | Configuration should fail early without printing credentials. |
+| D07 | Package migrations with the backend | The installed wheel and source checkout must compute readiness from the same schema history. |
+| D08 | One small Python developer command | Cross-platform Docker setup and local quality checks; no additional task framework. |
+| D09 | Disabled model configuration by default | Validate future provider references and secret handling without introducing model execution into C01. |
 
 Dependency references reviewed on 2026-10-12:
 

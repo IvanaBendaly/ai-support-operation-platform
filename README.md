@@ -24,6 +24,13 @@ Open http://localhost:8080. OpenAPI documentation is at http://localhost:8000/do
 Compose waits for PostgreSQL, runs migrations in a separate one-shot service,
 then starts the backend and frontend. Failed migrations prevent backend startup.
 
+With Python 3.12+, Node 24, pnpm 11 and Docker Compose installed, one-command setup
+is `python scripts/dev.py setup`. It preserves an existing `.env`, otherwise
+copies the example, creates the local virtual environment and installs locked
+backend/frontend development dependencies. It checks the Docker engine and Compose
+configuration, builds, migrates, starts, and waits for the API and frontend health checks. It fails with
+a nonzero exit status if any step fails.
+
 ```sh
 docker compose run --rm migrate
 docker compose logs backend
@@ -56,6 +63,13 @@ alembic upgrade head
 uvicorn northstar.api:create_app --factory --reload --no-access-log
 ```
 
+Alternatively, keep `.env` at the repository root and run both commands there:
+`python -m alembic -c backend/alembic.ini upgrade head` and
+`python -m uvicorn northstar.api:create_app --factory --reload --no-access-log`.
+The environment file is read from the current working directory. Real environment
+variables override `.env`. The startup error identifies invalid fields without
+printing their submitted values.
+
 From `frontend`, in another terminal:
 
 ```sh
@@ -70,6 +84,13 @@ the database is unavailable or needs migration. Requests have generated
 correlation IDs; errors do not echo credentials or validation input values.
 
 ## Tests and checks
+
+After installing the local backend/frontend dependencies, run every local quality
+check from the root with `python scripts/dev.py check`. This runs backend and
+developer-command tests, Ruff lint/format checks, frontend tests, TypeScript, and
+the frontend production build. It stops on failure. PostgreSQL tests are skipped
+when no test URL is set; use `python scripts/dev.py check --require-postgres` for
+a release gate that refuses to proceed without that database configuration.
 
 ```sh
 cd backend
@@ -96,6 +117,19 @@ evidence of a completed CI run. No paid model calls are made by standard tests.
 | `NORTHSTAR_LOG_LEVEL` | DEBUG, INFO, WARNING, ERROR |
 | `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | Compose database initialization |
 | `NORTHSTAR_TEST_DATABASE_URL` | Disposable PostgreSQL integration-test database |
+| `NORTHSTAR_MODEL_PROVIDER` | `disabled` (default) or `openai`; configuration reference only in C01 |
+| `NORTHSTAR_MODEL_NAME` | Required nonblank model identifier when provider is configured |
+| `NORTHSTAR_PROVIDER_API_KEY` | Required secret when provider is configured; never returned by health APIs |
+| `NORTHSTAR_MODEL_TIMEOUT_SECONDS` | Positive number up to 120; default 30 |
+| `NORTHSTAR_MODEL_MAX_OUTPUT_TOKENS` | Integer 1–16384; default 1024 |
+
+Typed environment profiles share one settings class: development uses PostgreSQL
+and explicit local origins; test additionally permits SQLite; production requires
+PostgreSQL and explicit HTTPS origins. For production, set
+`NORTHSTAR_ENVIRONMENT=production` and
+`NORTHSTAR_ALLOWED_ORIGINS=["https://support.example.com"]` together with the
+deployment's database URL. Model configuration does not enable model execution:
+that belongs to C06. No live provider dependency affects C01 readiness.
 
 ## Architecture and remaining delivery
 

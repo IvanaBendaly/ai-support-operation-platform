@@ -17,10 +17,11 @@ jobs:
       - uses: actions/setup-python@v5
         with: { python-version: '3.12' }
       - run: pip install -r backend/requirements.lock && pip install --no-deps -e backend
-      - run: ruff check . && ruff format --check . && pytest
+      - run: ruff check . && ruff format --check . && pytest tests ../scripts/tests
         working-directory: backend
         env:
           NORTHSTAR_TEST_DATABASE_URL: postgresql+psycopg://northstar:ci-only-password@localhost:5432/northstar_test
+      - run: ruff check scripts && ruff format --check scripts
   frontend:
     runs-on: ubuntu-latest
     steps:
@@ -30,3 +31,16 @@ jobs:
       - run: npm install --global pnpm@11.25.0
       - run: pnpm install --frozen-lockfile && pnpm test && pnpm build
         working-directory: frontend
+  startup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - uses: actions/setup-node@v4
+        with: { node-version: '24' }
+      - run: npm install --global pnpm@11.25.0
+      - run: python scripts/dev.py setup
+      - run: curl --fail http://localhost:8080/api/ready
+      - if: always()
+        run: docker compose down

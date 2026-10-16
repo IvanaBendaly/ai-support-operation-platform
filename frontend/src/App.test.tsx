@@ -3,6 +3,12 @@ import { describe, expect, it, vi } from 'vitest';
 import App from './App';
 
 describe('service readiness', () => {
+  it('rejects malformed success responses', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ok: true, json: async () => ({status: 'unknown'})}));
+    render(<App />);
+    expect(await screen.findByRole('alert')).toHaveTextContent('invalid readiness response');
+    expect(screen.queryByText('Ready for requests')).not.toBeInTheDocument();
+  });
   it('shows database evidence from the backend', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ok: true, json: async () => ({status: 'ready', database: 'connected', schema: '0001'})}));
     render(<App />);

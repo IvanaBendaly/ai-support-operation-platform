@@ -1,6 +1,6 @@
 # Implementation status
 
-Updated: 2026-10-12. Repository initially empty (not a Git checkout).
+Updated: 2026-10-16. Repository initially empty; now a Git checkout.
 The full implementation contract is preserved in `docs/IMPLEMENTATION_CONTRACT.md`.
 No feature is VERIFIED until every mandatory completion gate passes.
 
@@ -83,14 +83,48 @@ The deprecated HTTP test-client fallback was replaced with `httpx2`.
 ## Resume point
 
 The user selected local Docker and will install/start Docker Desktop. Once
-available, follow `docs/VERIFICATION.md`: verify Compose, PostgreSQL migrations,
-seed and concurrency; correct failures before marking C01/C02 VERIFIED. Then
-proceed to C03 policy ingestion and its administrative authorization foundation.
-All C03–C16 requirements remain in scope; none have been silently removed.
+available, follow `docs/VERIFICATION.md`: verify Compose and PostgreSQL migrations
+before marking C01 VERIFIED. The current request selects C01 only, including its
+Strong Additions. C02 code is preserved; no later features were added this turn.
+The original project scope remains recorded for future feature requests.
 
 The preview at port 5173 uses an explicitly configured SQLite **test** database,
 not the production PostgreSQL environment. It demonstrates only the foundation.
-Repository has no `.git` directory; no commit or push has been performed.
+No commit or push has been performed by the assistant.
+
+## C01 follow-up (2026-10-16)
+
+- Fixed installed-package readiness: moved migrations into the backend package
+  and added wheel installation/migration/readiness regression verification.
+- Added validated model/provider configuration references with disabled default
+  and secret-safe startup errors; stricter origin validation; existing typed
+  development/test/production profiles retained.
+- Added explicit package homes for AI, retrieval, evaluation and integrations;
+  no later-feature behavior implemented.
+- Added `python scripts/dev.py setup` and `check [--require-postgres]`. Setup
+  validates Docker/Compose, preserves configuration and waits for runtime health.
+  Quality checks fail fast and isolate temporary test files between OS identities.
+- Readiness rejects extra schema heads; frontend rejects malformed success
+  payloads and shows the backend's environment rather than a hardcoded label.
+- Added container-startup CI job and frontend health check. CI configuration
+  exists but has not been executed remotely in this task.
+- Real secrets: tracked environment/key-file check found only `.env.example`,
+  which contains synthetic local-development credentials. No real key was added.
+- Blocker: Docker executable and PostgreSQL server remain unavailable. One-command
+  setup was executed and correctly failed with an actionable missing-Docker error.
+  Fresh Compose installation and real PostgreSQL migration checks remain unverified.
+
+### Current execution evidence
+
+- `.venv/Scripts/python.exe scripts/dev.py check`: passed (46 Python tests,
+  3 PostgreSQL tests skipped; 4 frontend tests; Ruff lint/format; TypeScript/Vite build).
+- Packaged-wheel regression passed: isolated wheel installation, empty SQLite
+  migration, readiness, schema-drift check and downgrade.
+- Actual Uvicorn and Vite processes started; HTTP requests to backend health,
+  frontend HTML, and frontend `/api/ready` proxy succeeded. Schema `0002`, environment `test`.
+- `scripts/dev.py setup`: failed before mutation because Docker was not found.
+- Failed/unverified DoD: fresh documented Docker startup; migrations against an
+  empty primary PostgreSQL database. These remain mandatory, so C01 is incomplete.
 
 ## Optional candidates, not authorized for implementation
 

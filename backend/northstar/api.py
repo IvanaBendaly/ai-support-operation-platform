@@ -1,6 +1,5 @@
 import logging
 from contextlib import asynccontextmanager
-from pathlib import Path
 from time import perf_counter
 from uuid import uuid4
 
@@ -14,28 +13,31 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.exceptions import HTTPException
 
-from northstar.config import Settings
+from northstar.config import Settings, load_settings
 from northstar.db import make_engine, session_factory
 from northstar.logging import configure_logging
 
 
 def expected_revision():
     config = Config()
-    config.set_main_option("script_location", str(Path(__file__).parents[1] / "migrations"))
+    config.set_main_option("script_location", "northstar:migrations")
     return ScriptDirectory.from_config(config).get_current_head()
 
 
 def create_app(settings: Settings | None = None, engine=None):
-    settings = settings or Settings()
+    settings = settings or load_settings()
+    schema_head = expected_revision()
     configure_logging(settings.log_level)
     owns_engine = engine is None
     engine = engine or make_engine(settings)
 
     @asynccontextmanager
     async def lifespan(app):
-        yield
-        if owns_engine:
-            engine.dispose()
+        try:
+            yield
+        finally:
+            if owns_engine:
+                engine.dispose()
 
     app = FastAPI(title="Northstar Cloud Support Operations", version="0.1.0", lifespan=lifespan)
     app.state.settings = settings
@@ -105,22 +107,35 @@ def create_app(settings: Settings | None = None, engine=None):
 
     @app.get("/api/health", tags=["System"])
     def health():
-        return {"status": "alive", "service": "northstar-support", "version": "0.1.0"}
+        return {
+            "status": "alive",
+            "service": "northstar-support",
+            "version": app.version,
+            "environment": settings.environment,
+        }
 
     @app.get("/api/ready", tags=["System"], responses={503: {"description": "Not ready"}})
     def ready(request: Request):
         try:
             with engine.connect() as connection:
                 connection.execute(text("SELECT 1"))
-                revision = connection.execute(
-                    text("SELECT version_num FROM alembic_version")
-                ).scalar()
-                if revision != expected_revision():
+                revisions = (
+                    connection.execute(text("SELECT version_num FROM alembic_version"))
+                    .scalars()
+                    .all()
+                )
+                if revisions != [schema_head]:
                     return error(
                         request, 503, "schema_not_ready", "Database migrations are required."
                     )
         except SQLAlchemyError:
             return error(request, 503, "database_not_ready", "Database or schema is unavailable.")
-        return {"status": "ready", "database": "connected", "schema": revision}
+        return {
+            "status": "ready",
+            "database": "connected",
+            "schema": schema_head,
+            "environment": settings.environment,
+            "version": app.version,
+        }
 
     return app

@@ -61,6 +61,13 @@ def test_migration_empty_database_readiness_and_downgrade(tmp_path, monkeypatch)
     with TestClient(create_app(configuration(url), engine)) as client:
         assert client.get("/api/ready").json()["schema"] == expected_revision()
         with engine.begin() as connection:
+            connection.execute(text("INSERT INTO alembic_version VALUES ('unexpected-branch')"))
+        assert client.get("/api/ready").status_code == 503
+        with engine.begin() as connection:
+            connection.execute(
+                text("DELETE FROM alembic_version WHERE version_num='unexpected-branch'")
+            )
+        with engine.begin() as connection:
             connection.execute(text("UPDATE alembic_version SET version_num = 'old'"))
         assert client.get("/api/ready").json()["error"]["code"] == "schema_not_ready"
         with engine.begin() as connection:
