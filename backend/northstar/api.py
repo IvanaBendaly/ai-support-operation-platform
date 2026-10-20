@@ -18,6 +18,7 @@ from northstar.db import make_engine, session_factory
 from northstar.domain import DomainError
 from northstar.logging import configure_logging
 from northstar.retrieval.api import router as knowledge_router
+from northstar.retrieval.search_api import router as retrieval_router
 
 
 def expected_revision():
@@ -145,4 +146,5 @@ def create_app(settings: Settings | None = None, engine=None):
         return error(request, exc.status, exc.code, str(exc))
 
     app.include_router(knowledge_router)
+    app.include_router(retrieval_router)
     return app

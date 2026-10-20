@@ -26,6 +26,9 @@ services:
     environment:
       <<: *backend_environment
       NORTHSTAR_ADMIN_TOKEN: ${NORTHSTAR_ADMIN_TOKEN:-}
+      NORTHSTAR_RETRIEVAL__RESULT_LIMIT: ${NORTHSTAR_RETRIEVAL__RESULT_LIMIT:-5}
+      NORTHSTAR_RETRIEVAL__CONTEXT_CHARS: ${NORTHSTAR_RETRIEVAL__CONTEXT_CHARS:-8000}
+      NORTHSTAR_RETRIEVAL__SECTION_CHARS: ${NORTHSTAR_RETRIEVAL__SECTION_CHARS:-2000}
     depends_on:
       migrate: { condition: service_completed_successfully }
     ports: ["127.0.0.1:8000:8000"]

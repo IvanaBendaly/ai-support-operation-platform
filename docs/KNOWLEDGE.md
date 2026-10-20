@@ -96,8 +96,7 @@ needed: eligibility changes at the timestamp boundary on the next query.
 `retrieval.service.eligible_documents(at)` and `retrieval_sections(session, at)`
 are the authoritative C04 integration boundary. Any future index must filter or
 revalidate candidate document IDs with this predicate **at evidence use**, even
-when chunks are cached. A static index must never treat READY as active. There is
-no embedding provider or vector index in C03. The policy `revision` is an ingestion
+when chunks are cached. A static index must never treat READY as active. C04 now consumes this boundary through its local semantic index; see RETRIEVAL.md. The policy `revision` is an ingestion
 sequence, not a complete index invalidation cursor.
 
 Business seed/reset lists explicit business tables, leaving knowledge untouched.

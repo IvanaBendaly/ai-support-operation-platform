@@ -9,7 +9,7 @@ No feature is VERIFIED until every mandatory completion gate passes.
 | C01 | Foundation/configuration | IMPLEMENTED_UNVERIFIED | None | Local tests/build/browser checks pass. PostgreSQL and Compose verification pending Docker Desktop. |
 | C02 | Business domain/database | IMPLEMENTED_UNVERIFIED | C01 | Entire selected scope implemented, including metadata, billing events/lifecycle history, expanded fixtures and atomic reset. Local tests pass; PostgreSQL validation remains blocked. |
 | C03 | Policy ingestion | IMPLEMENTED_UNVERIFIED | C01 | Upload, batch, extraction, versions, scheduled eligibility and deactivation implemented. PostgreSQL runtime verification pending. |
-| C04 | Semantic retrieval | NOT_STARTED | C03 | All acceptance criteria pending |
+| C04 | Semantic retrieval | IMPLEMENTED_UNVERIFIED | C01, C03 | Local semantic index, hybrid/reranked search, query reformulation, lifecycle synchronization and tests implemented. PostgreSQL runtime verification pending. |
 | C05 | Support cases | NOT_STARTED | C02 | All acceptance criteria pending |
 | C06 | Model gateway | NOT_STARTED | C01 | All acceptance criteria pending; live verification requires credentials |
 | C07 | Workflow | NOT_STARTED | C04–06 | All acceptance criteria pending |
@@ -174,3 +174,22 @@ comprehensive billing engine was added.
 Final C03 verification: backend pytest 79 passed, 6 skipped (including 2 C03
 PostgreSQL tests); Ruff lint and format checks passed across backend and scripts.
 Installed-wheel and legacy/empty migration regressions are included in that suite.
+
+## C04 selected-feature delivery (2026-10-20)
+
+- Migration 0005 stores an atomic semantic index snapshot with model/source/checksum metadata.
+- Local corpus-trained LSA, keyword hybrid scoring, candidate reranking and deterministic
+  query reformulation implement Must Build and all Strong Additions without a remote provider.
+- Reusable typed retrieval service and authenticated administrative search/rebuild endpoints.
+- C03 active/version/validity filtering reused before index generation and after ranking.
+- Whole-section context limits, explicit empty/ambiguous/insufficient statuses and safe
+  infrastructure/computation failures. No old-index fallback after a failed update.
+- Fixed-corpus, lifecycle, concurrency-race, corruption, rollback and API tests added.
+- Portfolio contract and runnable disposable demo: docs/RETRIEVAL.md and scripts/retrieval_demo.py.
+- PostgreSQL lifecycle and concurrent index-build tests remain unverified: Docker Desktop
+  and PostgreSQL are unavailable locally. No C05 workflow or distributed search was added.
+
+Final C04 verification: backend pytest 107 passed, 8 skipped (including 2 C04
+PostgreSQL checks). Ruff lint/format passed across backend and scripts.
+The disposable retrieval demo ran successfully; captured output is stored in
+docs/examples/retrieval-demo.json. Replacement and deactivation assertions passed.

@@ -1,16 +1,49 @@
 from typing import Literal
 from urllib.parse import urlsplit
 
-from pydantic import Field, SecretStr, ValidationError, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    SecretStr,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic_settings.exceptions import SettingsError
 from sqlalchemy.engine import make_url
 
 
+class RetrievalSettings(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    result_limit: int = Field(default=5, ge=1, le=20)
+    context_chars: int = Field(default=8000, ge=256, le=32000)
+    section_chars: int = Field(default=2000, ge=128, le=2000)
+    query_chars: int = Field(default=2000, ge=1, le=8000)
+    candidate_limit: int = Field(default=20, ge=1, le=100)
+    min_score: float = Field(default=0.22, ge=0, le=1, allow_inf_nan=False)
+    ambiguity_margin: float = Field(default=0.06, ge=0, le=1, allow_inf_nan=False)
+    dimensions: int = Field(default=32, ge=1, le=64)
+    max_sections: int = Field(default=256, ge=1, le=512)
+    max_vocabulary: int = Field(default=4096, ge=32, le=8192)
+
+    @model_validator(mode="after")
+    def candidate_count(self):
+        if self.candidate_limit < self.result_limit:
+            raise ValueError("candidate_limit must be at least result_limit")
+        return self
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_prefix="NORTHSTAR_", env_file=".env", extra="ignore", hide_input_in_errors=True
+        env_prefix="NORTHSTAR_",
+        env_nested_delimiter="__",
+        env_file=".env",
+        extra="ignore",
+        hide_input_in_errors=True,
     )
+    retrieval: RetrievalSettings = Field(default_factory=RetrievalSettings)
     environment: Literal["development", "test", "production"] = "development"
     database_url: SecretStr
     allowed_origins: list[str] = Field(default_factory=lambda: ["http://localhost:5173"])

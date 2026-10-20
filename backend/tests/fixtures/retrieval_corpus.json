@@ -1,0 +1,10 @@
+[
+  {"id":"refunds","text":"# Refund eligibility\nPaid invoices qualify for a full refund within 30 days. Refunds above $100 require review. Unpaid invoices cannot be refunded."},
+  {"id":"cancellation","text":"# Subscription cancellation\nCancel a subscription to stop future billing. Cancellation takes effect at the end of the current subscription period. Cancellation does not automatically refund an invoice."},
+  {"id":"login","text":"# Login recovery\nReset your password using the verified email recovery link if you cannot login. Never share passwords or recovery codes with support."},
+  {"id":"outage","text":"# Service outages\nCheck the service status page during an outage. Support will report restoration updates. Service credits require an incident review."},
+  {"id":"upgrade","text":"# Plan upgrades\nUpgrade a subscription from Starter to Growth from the account settings page. The new plan price applies to future invoices."},
+  {"id":"invoices","text":"# Invoice copies\nDownload invoice receipts from billing history. An invoice copy shows the payment date, currency and amount. Invoice copies do not change payment state."},
+  {"id":"export","text":"# Data export\nExport customer data in CSV format from the data settings page. Exports are available to account owners and expire after seven days."},
+  {"id":"deletion","text":"# Data deletion\nDelete personal data through a verified privacy request. Data deletion is irreversible and requires identity verification. Billing records may be retained."}
+]

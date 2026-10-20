@@ -47,3 +47,14 @@ refunds, same-key replay, and reset; execution requires a disposable PostgreSQL 
 - Duplicates, transactions, scheduled validity and downstream exclusion: retrieval/service.py.
 - Batch, warnings, inspection and deactivation: administrative API; tests/test_knowledge.py.
 - Proof and operation contract: KNOWLEDGE.md; synthetic example policies/refunds.md.
+
+## C04 policy retrieval
+
+- Persisted semantic representations and atomic index: retrieval/models.py,
+  retrieval/representation.py, retrieval/search.py and migration 0005.
+- Active-policy synchronization, integrity checks, limits and explicit outcomes:
+  RetrievalService and RetrievalSettings.
+- Hybrid scoring, reranking and query reformulation: retrieval/representation.py.
+- Administrative preview/rebuild: retrieval/search_api.py; existing C03 authentication.
+- Fixed corpus and acceptance/failure checks: tests/test_retrieval.py and fixtures/retrieval_corpus.json.
+- Portfolio proof: RETRIEVAL.md and scripts/retrieval_demo.py.

@@ -1,0 +1,247 @@
+{
+  "environment": "disposable SQLite test database",
+  "queries": [
+    {
+      "status": "matched",
+      "query": "I want my money back",
+      "effective_at": "2026-10-20T00:00:00Z",
+      "reason": null,
+      "evidence": [
+        {
+          "section_id": "22ba7357af59bef843056baff2d67671d0f3c73c906db77c46d392bd09070127",
+          "document_id": "b1a3a6a8-3b44-427b-bceb-a96c9d6c8885",
+          "policy_id": "refunds",
+          "version": 1,
+          "filename": "refunds.md",
+          "source": "line:1;heading:Refund eligibility;offset:0",
+          "ordinal": 1,
+          "text": "# Refund eligibility\nPaid invoices qualify for a full refund within 30 days. Refunds above $100 require review. Unpaid invoices cannot be refunded.",
+          "score": 0.756409,
+          "semantic_score": 0.952075,
+          "keyword_score": 0.485595,
+          "coverage": 1.0
+        },
+        {
+          "section_id": "e56fd2b4ce6f3e47d2db2fa442af5b89d8600711c9e1c7ab7d34ffa4f6fbdd44",
+          "document_id": "349c4d7c-5e10-4a28-a005-4efca429621e",
+          "policy_id": "cancellation",
+          "version": 1,
+          "filename": "cancellation.md",
+          "source": "line:1;heading:Subscription cancellation;offset:0",
+          "ordinal": 1,
+          "text": "# Subscription cancellation\nCancel a subscription to stop future billing. Cancellation takes effect at the end of the current subscription period. Cancellation does not automatically refund an invoice.",
+          "score": 0.421358,
+          "semantic_score": 0.378767,
+          "keyword_score": 0.193186,
+          "coverage": 1.0
+        }
+      ],
+      "context": "[22ba7357af59bef843056baff2d67671d0f3c73c906db77c46d392bd09070127] refunds v1 refunds.md (line:1;heading:Refund eligibility;offset:0)\n# Refund eligibility\nPaid invoices qualify for a full refund within 30 days. Refunds above $100 require review. Unpaid invoices cannot be refunded.\n\n[e56fd2b4ce6f3e47d2db2fa442af5b89d8600711c9e1c7ab7d34ffa4f6fbdd44] cancellation v1 cancellation.md (line:1;heading:Subscription cancellation;offset:0)\n# Subscription cancellation\nCancel a subscription to stop future billing. Cancellation takes effect at the end of the current subscription period. Cancellation does not automatically refund an invoice.\n\n",
+      "context_chars": 637,
+      "result_count": 2,
+      "budget_limited": false,
+      "query_expansions": [
+        "refund"
+      ],
+      "settings": {
+        "result_limit": 5,
+        "context_chars": 8000,
+        "section_chars": 2000,
+        "query_chars": 2000,
+        "candidate_limit": 20,
+        "min_score": 0.22,
+        "ambiguity_margin": 0.06,
+        "dimensions": 32,
+        "max_sections": 256,
+        "max_vocabulary": 4096
+      },
+      "model_id": "northstar-lsa-hybrid-v1:d32:v4096",
+      "index_generation": "adf22b64-51f2-46b1-918c-9bad31903eb7",
+      "index_status": "READY",
+      "indexed_sections": 8,
+      "duration_ms": 10.203
+    },
+    {
+      "status": "matched",
+      "query": "I am locked out",
+      "effective_at": "2026-10-20T00:00:00Z",
+      "reason": null,
+      "evidence": [
+        {
+          "section_id": "284b506facd6205d35bbc62f28f2acff572da8968a453c5e7950fa33b46c6457",
+          "document_id": "0b15c96b-248b-4024-8493-4f7edbb9f060",
+          "policy_id": "login",
+          "version": 1,
+          "filename": "login.md",
+          "source": "line:1;heading:Login recovery;offset:0",
+          "ordinal": 1,
+          "text": "# Login recovery\nReset your password using the verified email recovery link if you cannot login. Never share passwords or recovery codes with support.",
+          "score": 0.799387,
+          "semantic_score": 0.997844,
+          "keyword_score": 0.545825,
+          "coverage": 1.0
+        }
+      ],
+      "context": "[284b506facd6205d35bbc62f28f2acff572da8968a453c5e7950fa33b46c6457] login v1 login.md (line:1;heading:Login recovery;offset:0)\n# Login recovery\nReset your password using the verified email recovery link if you cannot login. Never share passwords or recovery codes with support.\n\n",
+      "context_chars": 278,
+      "result_count": 1,
+      "budget_limited": false,
+      "query_expansions": [
+        "login password"
+      ],
+      "settings": {
+        "result_limit": 5,
+        "context_chars": 8000,
+        "section_chars": 2000,
+        "query_chars": 2000,
+        "candidate_limit": 20,
+        "min_score": 0.22,
+        "ambiguity_margin": 0.06,
+        "dimensions": 32,
+        "max_sections": 256,
+        "max_vocabulary": 4096
+      },
+      "model_id": "northstar-lsa-hybrid-v1:d32:v4096",
+      "index_generation": "adf22b64-51f2-46b1-918c-9bad31903eb7",
+      "index_status": "READY",
+      "indexed_sections": 8,
+      "duration_ms": 4.844
+    },
+    {
+      "status": "no_matches",
+      "query": "astronomy telescope galaxies",
+      "effective_at": "2026-10-20T00:00:00Z",
+      "reason": "no_relevant_sections",
+      "evidence": [],
+      "context": "",
+      "context_chars": 0,
+      "result_count": 0,
+      "budget_limited": false,
+      "query_expansions": [],
+      "settings": {
+        "result_limit": 5,
+        "context_chars": 8000,
+        "section_chars": 2000,
+        "query_chars": 2000,
+        "candidate_limit": 20,
+        "min_score": 0.22,
+        "ambiguity_margin": 0.06,
+        "dimensions": 32,
+        "max_sections": 256,
+        "max_vocabulary": 4096
+      },
+      "model_id": "northstar-lsa-hybrid-v1:d32:v4096",
+      "index_generation": "adf22b64-51f2-46b1-918c-9bad31903eb7",
+      "index_status": "READY",
+      "indexed_sections": 8,
+      "duration_ms": 4.113
+    }
+  ],
+  "replacement": {
+    "previous_document_id": "b1a3a6a8-3b44-427b-bceb-a96c9d6c8885",
+    "new_document_id": "c01075ba-e96f-42ce-a011-2ae76b60b3c3",
+    "result": {
+      "status": "matched",
+      "query": "refund",
+      "effective_at": "2026-10-20T00:00:00Z",
+      "reason": null,
+      "evidence": [
+        {
+          "section_id": "c8614d627ca0324926a79063238461beb2aac272e81a21d1492596e381b37844",
+          "document_id": "c01075ba-e96f-42ce-a011-2ae76b60b3c3",
+          "policy_id": "refunds",
+          "version": 2,
+          "filename": "refunds-v2.txt",
+          "source": "line:1;heading:;offset:0",
+          "ordinal": 1,
+          "text": "Refunds require finance review before approval. Submit the invoice for review.",
+          "score": 0.639462,
+          "semantic_score": 0.854442,
+          "keyword_score": 0.29969,
+          "coverage": 1.0
+        },
+        {
+          "section_id": "e56fd2b4ce6f3e47d2db2fa442af5b89d8600711c9e1c7ab7d34ffa4f6fbdd44",
+          "document_id": "349c4d7c-5e10-4a28-a005-4efca429621e",
+          "policy_id": "cancellation",
+          "version": 1,
+          "filename": "cancellation.md",
+          "source": "line:1;heading:Subscription cancellation;offset:0",
+          "ordinal": 1,
+          "text": "# Subscription cancellation\nCancel a subscription to stop future billing. Cancellation takes effect at the end of the current subscription period. Cancellation does not automatically refund an invoice.",
+          "score": 0.483286,
+          "semantic_score": 0.55079,
+          "keyword_score": 0.193186,
+          "coverage": 1.0
+        }
+      ],
+      "context": "[c8614d627ca0324926a79063238461beb2aac272e81a21d1492596e381b37844] refunds v2 refunds-v2.txt (line:1;heading:;offset:0)\nRefunds require finance review before approval. Submit the invoice for review.\n\n[e56fd2b4ce6f3e47d2db2fa442af5b89d8600711c9e1c7ab7d34ffa4f6fbdd44] cancellation v1 cancellation.md (line:1;heading:Subscription cancellation;offset:0)\n# Subscription cancellation\nCancel a subscription to stop future billing. Cancellation takes effect at the end of the current subscription period. Cancellation does not automatically refund an invoice.\n\n",
+      "context_chars": 554,
+      "result_count": 2,
+      "budget_limited": false,
+      "query_expansions": [],
+      "settings": {
+        "result_limit": 5,
+        "context_chars": 8000,
+        "section_chars": 2000,
+        "query_chars": 2000,
+        "candidate_limit": 20,
+        "min_score": 0.22,
+        "ambiguity_margin": 0.06,
+        "dimensions": 32,
+        "max_sections": 256,
+        "max_vocabulary": 4096
+      },
+      "model_id": "northstar-lsa-hybrid-v1:d32:v4096",
+      "index_generation": "3d5397ab-16b7-4db2-8d73-8d21eb08fe7d",
+      "index_status": "READY",
+      "indexed_sections": 8,
+      "duration_ms": 6.085
+    },
+    "old_version_excluded": true
+  },
+  "deactivation": {
+    "status": "matched",
+    "query": "refund",
+    "effective_at": "2026-10-20T00:00:00Z",
+    "reason": null,
+    "evidence": [
+      {
+        "section_id": "e56fd2b4ce6f3e47d2db2fa442af5b89d8600711c9e1c7ab7d34ffa4f6fbdd44",
+        "document_id": "349c4d7c-5e10-4a28-a005-4efca429621e",
+        "policy_id": "cancellation",
+        "version": 1,
+        "filename": "cancellation.md",
+        "source": "line:1;heading:Subscription cancellation;offset:0",
+        "ordinal": 1,
+        "text": "# Subscription cancellation\nCancel a subscription to stop future billing. Cancellation takes effect at the end of the current subscription period. Cancellation does not automatically refund an invoice.",
+        "score": 0.653335,
+        "semantic_score": 0.979703,
+        "keyword_score": 0.22873,
+        "coverage": 1.0
+      }
+    ],
+    "context": "[e56fd2b4ce6f3e47d2db2fa442af5b89d8600711c9e1c7ab7d34ffa4f6fbdd44] cancellation v1 cancellation.md (line:1;heading:Subscription cancellation;offset:0)\n# Subscription cancellation\nCancel a subscription to stop future billing. Cancellation takes effect at the end of the current subscription period. Cancellation does not automatically refund an invoice.\n\n",
+    "context_chars": 354,
+    "result_count": 1,
+    "budget_limited": false,
+    "query_expansions": [],
+    "settings": {
+      "result_limit": 5,
+      "context_chars": 8000,
+      "section_chars": 2000,
+      "query_chars": 2000,
+      "candidate_limit": 20,
+      "min_score": 0.22,
+      "ambiguity_margin": 0.06,
+      "dimensions": 32,
+      "max_sections": 256,
+      "max_vocabulary": 4096
+    },
+    "model_id": "northstar-lsa-hybrid-v1:d32:v4096",
+    "index_generation": "8c83828f-44e4-43e6-956c-458feb91e1ec",
+    "index_status": "READY",
+    "indexed_sections": 7,
+    "duration_ms": 5.644
+  }
+}

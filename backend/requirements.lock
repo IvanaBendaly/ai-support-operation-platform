@@ -36,3 +36,4 @@ setuptools==82.0.1
 wheel==0.48.0
 pypdf==6.21.1
 python-multipart==0.0.32
+numpy==2.5.4

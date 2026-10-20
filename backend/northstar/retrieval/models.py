@@ -59,3 +59,20 @@ class Section(Base):
     ordinal: Mapped[int] = mapped_column(Integer)
     source: Mapped[str] = mapped_column(String(500))
     text: Mapped[str] = mapped_column(Text)
+
+
+class RetrievalIndex(Base, RecordTimestamps):
+    """One atomic, bounded corpus snapshot; vectors never commit independently."""
+
+    __tablename__ = "knowledge_retrieval_index"
+    __table_args__ = (
+        CheckConstraint("id = 'active'", name="singleton"),
+        CheckConstraint("status IN ('EMPTY', 'READY')", name="index_status"),
+    )
+    id: Mapped[str] = mapped_column(String(20), primary_key=True)
+    status: Mapped[str] = mapped_column(String(20))
+    model_id: Mapped[str] = mapped_column(String(100))
+    generation: Mapped[str] = mapped_column(String(36))
+    source_hash: Mapped[str] = mapped_column(String(64))
+    payload_hash: Mapped[str] = mapped_column(String(64))
+    payload: Mapped[dict] = mapped_column(JSON)

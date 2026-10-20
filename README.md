@@ -172,3 +172,9 @@ Optional enhancements are listed in the tracker and will not be added silently.
 
 See [knowledge lifecycle and upload examples](docs/KNOWLEDGE.md). Apply migration 0004
 and configure NORTHSTAR_ADMIN_TOKEN to enable the administrative document API.
+
+## Policy retrieval (C04)
+
+See [retrieval service, configuration and demo](docs/RETRIEVAL.md). Migration 0005
+adds the persisted local semantic index. The administrative search API and internal
+service synchronize active policies before returning bounded, attributed evidence.
