@@ -30,3 +30,20 @@ installs a wheel into an isolated directory, upgrades an empty test database,
 checks readiness and schema drift, then downgrades. `scripts/tests/test_dev_command.py`
 covers missing Docker and the mandatory-PostgreSQL quality gate. The frontend
 also rejects malformed HTTP-success readiness payloads.
+
+C02 completion coverage: `test_business_lifecycle.py` verifies payment/refund event
+transactions, account lifecycle history, ownership/pagination, refund metadata,
+reset atomicity/scope, exact repeated baselines, fresh initialization equivalence,
+and expanded scenarios. `test_business_migration.py` verifies legacy data survives
+0003 upgrade/downgrade and invalid legacy state rolls back the whole migration.
+`test_seed_cli.py` exercises real seed/refusal/reset commands and the production
+guard. `test_postgres_domain.py` additionally covers primary-database concurrent
+refunds, same-key replay, and reset; execution requires a disposable PostgreSQL DB.
+
+## C03 knowledge lifecycle
+
+- Upload/validation/extraction: retrieval/api.py and retrieval/extraction.py.
+- Metadata, sections and history: retrieval/models.py and migration 0004.
+- Duplicates, transactions, scheduled validity and downstream exclusion: retrieval/service.py.
+- Batch, warnings, inspection and deactivation: administrative API; tests/test_knowledge.py.
+- Proof and operation contract: KNOWLEDGE.md; synthetic example policies/refunds.md.

@@ -7,8 +7,8 @@ No feature is VERIFIED until every mandatory completion gate passes.
 | ID | Scope | Status | Dependencies | Evidence / unresolved work |
 | --- | --- | --- | --- | --- |
 | C01 | Foundation/configuration | IMPLEMENTED_UNVERIFIED | None | Local tests/build/browser checks pass. PostgreSQL and Compose verification pending Docker Desktop. |
-| C02 | Business domain/database | IMPLEMENTED_UNVERIFIED | C01 | Models, migration, services, seed, ownership, idempotency, rollback, state machine tested locally. PostgreSQL concurrency tests await Docker. |
-| C03 | Policy ingestion | NOT_STARTED | C01–02 | All acceptance criteria pending |
+| C02 | Business domain/database | IMPLEMENTED_UNVERIFIED | C01 | Entire selected scope implemented, including metadata, billing events/lifecycle history, expanded fixtures and atomic reset. Local tests pass; PostgreSQL validation remains blocked. |
+| C03 | Policy ingestion | IMPLEMENTED_UNVERIFIED | C01 | Upload, batch, extraction, versions, scheduled eligibility and deactivation implemented. PostgreSQL runtime verification pending. |
 | C04 | Semantic retrieval | NOT_STARTED | C03 | All acceptance criteria pending |
 | C05 | Support cases | NOT_STARTED | C02 | All acceptance criteria pending |
 | C06 | Model gateway | NOT_STARTED | C01 | All acceptance criteria pending; live verification requires credentials |
@@ -131,3 +131,46 @@ No commit or push has been performed by the assistant.
 S01 retrieval improvements; S02 escalation calibration; S03 advanced approval and
 recovery; S04 advanced benchmark analysis; S05 load testing; S06 evaluation gates.
 All explicitly deferred features remain outside the implementation scope.
+
+## C02 selected-feature delivery (2026-10-16)
+
+The current request selects C02 Must Build and Strong Additions only. Existing
+C01/C02 interfaces are retained; no payment processor, support case workflow, or
+comprehensive billing engine was added.
+
+- Models/migration: revision 0003 adds UTC record timestamps, refund reason/state,
+  billing events, and fixture version/date metadata. Additional DB checks enforce
+  cancellation dates and full paid-invoice refunds. Legacy data is preserved.
+- Services: existing ownership, transactions and idempotency reused; added simulated
+  payment/void operations, account suspend/reactivate, owned billing/refund/lifecycle
+  history. Events and audit records commit atomically with business changes.
+- Fixtures: `northstar-business-v2` adds ambiguous invoices, different/disabled
+  plans, boundary amounts, suspended-account invoices and scheduled bills.
+- Reset: explicit CLI `--reset` and internal `reset_business`; deterministic,
+  transactional, non-production, marker-guarded, and limited to business tables.
+  Evaluation callers must use separate databases for concurrent scenarios.
+- Small necessary C01 fix: SQLite batch-migration transaction handling preserves
+  referencing legacy records and rolls back failed schema changes. PostgreSQL
+  migration behavior is unchanged.
+- Local verification: backend `python -m pytest -q --tb=short` passed 62 tests;
+  4 PostgreSQL tests skipped. Ruff lint/format passed. Tests include real seed/reset
+  subprocesses, legacy migration preservation, failed migration rollback, installed
+  wheel migration/readiness, and transaction failure injection.
+- Remaining gate: PostgreSQL migration/concurrency/reset execution. Docker and
+  PostgreSQL are still unavailable; this feature is not marked VERIFIED.
+- Portfolio proof: `docs/BUSINESS_RULES.md` contains model semantics, ER diagram,
+  fixture inventory, reset commands and limits. Requirements mapping updated.
+
+
+## C03 selected-feature delivery (2026-10-20)
+
+- Migration 0004; separate knowledge models, extraction/service/admin API; bearer-token boundary.
+- All Must Build and Strong Additions implemented; no OCR, external sync, or C04 vector index.
+- Portfolio proof: docs/KNOWLEDGE.md and docs/policies/refunds.md.
+- SQLite lifecycle, extraction, API, rollback and reset-isolation checks pass.
+- PostgreSQL lifecycle/concurrency tests remain skipped: Docker/PostgreSQL unavailable.
+
+
+Final C03 verification: backend pytest 79 passed, 6 skipped (including 2 C03
+PostgreSQL tests); Ruff lint and format checks passed across backend and scripts.
+Installed-wheel and legacy/empty migration regressions are included in that suite.

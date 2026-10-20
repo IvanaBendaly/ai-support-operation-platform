@@ -34,3 +34,5 @@ tzdata==2026.5
 uvicorn==0.54.0
 setuptools==82.0.1
 wheel==0.48.0
+pypdf==6.21.1
+python-multipart==0.0.32

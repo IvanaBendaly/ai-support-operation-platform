@@ -14,12 +14,18 @@ class Settings(BaseSettings):
     environment: Literal["development", "test", "production"] = "development"
     database_url: SecretStr
     allowed_origins: list[str] = Field(default_factory=lambda: ["http://localhost:5173"])
+    admin_token: SecretStr | None = Field(default=None, min_length=32)
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     model_provider: Literal["disabled", "openai"] = "disabled"
     model_name: str | None = Field(default=None, min_length=1, max_length=100)
     provider_api_key: SecretStr | None = None
     model_timeout_seconds: float = Field(default=30, gt=0, le=120, allow_inf_nan=False)
     model_max_output_tokens: int = Field(default=1024, ge=1, le=16384)
+
+    @field_validator("admin_token", mode="before")
+    @classmethod
+    def optional_admin_token(cls, value):
+        return None if value == "" else value
 
     @field_validator("database_url")
     @classmethod

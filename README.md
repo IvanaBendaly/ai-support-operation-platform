@@ -152,12 +152,23 @@ python -m northstar.seed --as-of 2026-10-12
 ```
 
 Use today's date for an interactive demo or the fixed date for repeatable tests.
-Seed refuses existing business records and production environments. Tests build
-fresh isolated fixtures; there is no destructive reset endpoint. Follow
+Seed refuses existing business records and production environments. For an already
+seeded **disposable** development/test database, add `--reset` to restore the
+versioned baseline atomically, including billing history and idempotency records.
+There is no reset HTTP endpoint. Tests build fresh isolated fixtures. Follow
 [Docker verification steps](docs/VERIFICATION.md) once Docker Desktop is running.
+
+C02 also supplies internal payment/void simulation, account suspension/reactivation,
+owned billing/lifecycle history reads, refund reasons/states, and record timestamps.
+See the [business model, relationship diagram, and scenario inventory](docs/BUSINESS_RULES.md).
 
 Customer authentication, support cases, semantic retrieval, AI interactions,
 approvals, and benchmarks are not yet available.
 There are no measured model/cost/latency tradeoffs to report. The later feature
 gates cover these, along with screenshots and the complete portfolio walkthrough.
 Optional enhancements are listed in the tracker and will not be added silently.
+
+## Knowledge administration (C03)
+
+See [knowledge lifecycle and upload examples](docs/KNOWLEDGE.md). Apply migration 0004
+and configure NORTHSTAR_ADMIN_TOKEN to enable the administrative document API.

@@ -23,7 +23,9 @@ services:
     restart: "no"
   backend:
     build: ./backend
-    environment: *backend_environment
+    environment:
+      <<: *backend_environment
+      NORTHSTAR_ADMIN_TOKEN: ${NORTHSTAR_ADMIN_TOKEN:-}
     depends_on:
       migrate: { condition: service_completed_successfully }
     ports: ["127.0.0.1:8000:8000"]

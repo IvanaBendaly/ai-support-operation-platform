@@ -52,12 +52,18 @@ def test_change_plan_commits_with_audit_and_replays(business):
 )
 def test_plan_rejections_never_mutate(business, account, plan, code):
     sessions, service = business
+    with sessions() as session:
+        before = {
+            row.id: (row.plan_id, row.version) for row in session.scalars(select(Subscription))
+        }
     with pytest.raises(DomainError) as error:
         service.change_plan("alice", account, plan, "reject")
     assert error.value.code == code
     with sessions() as session:
         assert session.scalar(select(func.count()).select_from(Operation)) == 0
-        assert all(s.plan_id == "starter" for s in session.scalars(select(Subscription)))
+        assert {
+            row.id: (row.plan_id, row.version) for row in session.scalars(select(Subscription))
+        } == before
 
 
 def test_refund_commits_once_and_duplicate_is_rejected(business):

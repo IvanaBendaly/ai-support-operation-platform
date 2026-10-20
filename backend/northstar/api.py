@@ -15,7 +15,9 @@ from starlette.exceptions import HTTPException
 
 from northstar.config import Settings, load_settings
 from northstar.db import make_engine, session_factory
+from northstar.domain import DomainError
 from northstar.logging import configure_logging
+from northstar.retrieval.api import router as knowledge_router
 
 
 def expected_revision():
@@ -138,4 +140,9 @@ def create_app(settings: Settings | None = None, engine=None):
             "version": app.version,
         }
 
+    @app.exception_handler(DomainError)
+    async def domain_error(request, exc):
+        return error(request, exc.status, exc.code, str(exc))
+
+    app.include_router(knowledge_router)
     return app

@@ -1,4 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
+from datetime import date
 from threading import Barrier
 
 import pytest
@@ -6,6 +7,7 @@ from sqlalchemy import func, select
 
 from northstar.domain import DomainError
 from northstar.models import Invoice, Operation, Refund, Subscription
+from northstar.seed import BUSINESS_RECORDS, reset_business
 
 pytestmark = pytest.mark.postgres
 
@@ -50,3 +52,22 @@ def test_concurrent_same_key_returns_same_result(postgres_business):
     with sessions() as session:
         assert session.get(Subscription, "sub-alice-active").version == 2
         assert session.scalar(select(func.count()).select_from(Operation)) == 1
+
+
+def test_postgres_reset_restores_baseline(postgres_business):
+    sessions, service = postgres_business
+
+    def snapshot():
+        with sessions() as session:
+            return {
+                model.__tablename__: session.execute(select(model.__table__).order_by(model.id))
+                .mappings()
+                .all()
+                for model in BUSINESS_RECORDS
+            }
+
+    before = snapshot()
+    service.record_payment("alice", "alice-active", "inv-unpaid", "pay")
+    service.refund("alice", "alice-active", "inv-eligible", "refund")
+    reset_business(sessions, date(2026, 10, 12), environment="test")
+    assert snapshot() == before
