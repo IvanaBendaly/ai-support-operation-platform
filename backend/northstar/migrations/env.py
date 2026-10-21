@@ -1,6 +1,7 @@
 from alembic import context
 
 from northstar import models  # noqa: F401 -- register domain metadata
+from northstar.cases import models as case_models  # noqa: F401
 from northstar.config import load_settings
 from northstar.db import Base, make_engine
 from northstar.retrieval import models as knowledge_models  # noqa: F401

@@ -13,6 +13,8 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.exceptions import HTTPException
 
+from northstar.cases.api import admin_router as cases_admin_router
+from northstar.cases.api import router as cases_router
 from northstar.config import Settings, load_settings
 from northstar.db import make_engine, session_factory
 from northstar.domain import DomainError
@@ -145,6 +147,8 @@ def create_app(settings: Settings | None = None, engine=None):
     async def domain_error(request, exc):
         return error(request, exc.status, exc.code, str(exc))
 
+    app.include_router(cases_router)
+    app.include_router(cases_admin_router)
     app.include_router(knowledge_router)
     app.include_router(retrieval_router)
     return app

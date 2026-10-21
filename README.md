@@ -178,3 +178,9 @@ and configure NORTHSTAR_ADMIN_TOKEN to enable the administrative document API.
 See [retrieval service, configuration and demo](docs/RETRIEVAL.md). Migration 0005
 adds the persisted local semantic index. The administrative search API and internal
 service synchronize active policies before returning bounded, attributed evidence.
+
+## Support cases (C05)
+
+See [customer authentication, case API and recovery](docs/CASES.md). Migration 0006
+adds durable cases, conversation/outcome history and processing leases. Run
+`python scripts/case_demo.py` for a disposable end-to-end lifecycle demonstration.

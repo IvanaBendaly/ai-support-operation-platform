@@ -58,3 +58,11 @@ refunds, same-key replay, and reset; execution requires a disposable PostgreSQL 
 - Administrative preview/rebuild: retrieval/search_api.py; existing C03 authentication.
 - Fixed corpus and acceptance/failure checks: tests/test_retrieval.py and fixtures/retrieval_corpus.json.
 - Portfolio proof: RETRIEVAL.md and scripts/retrieval_demo.py.
+
+## C05 support cases
+
+- Ownership and authentication: cases/credentials.py, cases/models.py; migration 0006.
+- Validation and finite lifecycle: cases/schemas.py, cases/service.py.
+- Customer-facing status, case API and administrator review: cases/api.py.
+- Idempotency, history, recovery and failures: CaseService and tests/test_cases.py.
+- Portfolio proof and worker contract: CASES.md and scripts/case_demo.py.

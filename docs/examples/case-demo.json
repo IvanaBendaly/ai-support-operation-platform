@@ -1,0 +1,263 @@
+{
+  "environment": "disposable SQLite test database",
+  "states": [
+    {
+      "id": "d5565e45-a0bd-406d-90cd-4211a5e04188",
+      "customer_id": "alice",
+      "account_id": "alice-active",
+      "subject": "Invoice explanation",
+      "category": "billing",
+      "context": {
+        "invoice_id": null,
+        "client_reference": null
+      },
+      "status": "open",
+      "disposition": null,
+      "version": 1,
+      "message_count": 1,
+      "attempt_count": 0,
+      "last_error": null,
+      "created_at": "2026-10-20T10:04:01.181767",
+      "updated_at": "2026-10-20T10:04:01.181767",
+      "resolved_at": null
+    },
+    {
+      "id": "d5565e45-a0bd-406d-90cd-4211a5e04188",
+      "customer_id": "alice",
+      "account_id": "alice-active",
+      "subject": "Invoice explanation",
+      "category": "billing",
+      "context": {
+        "invoice_id": null,
+        "client_reference": null
+      },
+      "status": "processing",
+      "disposition": null,
+      "version": 2,
+      "message_count": 1,
+      "attempt_count": 1,
+      "last_error": null,
+      "created_at": "2026-10-20T10:04:01.181767",
+      "updated_at": "2026-10-20T10:04:01.195783",
+      "resolved_at": null
+    },
+    {
+      "id": "d5565e45-a0bd-406d-90cd-4211a5e04188",
+      "customer_id": "alice",
+      "account_id": "alice-active",
+      "subject": "Invoice explanation",
+      "category": "billing",
+      "context": {
+        "invoice_id": null,
+        "client_reference": null
+      },
+      "status": "awaiting_customer",
+      "disposition": "clarification_requested",
+      "version": 3,
+      "message_count": 2,
+      "attempt_count": 1,
+      "last_error": null,
+      "created_at": "2026-10-20T10:04:01.181767",
+      "updated_at": "2026-10-20T10:04:01.202920",
+      "resolved_at": null
+    },
+    {
+      "id": "d5565e45-a0bd-406d-90cd-4211a5e04188",
+      "customer_id": "alice",
+      "account_id": "alice-active",
+      "subject": "Invoice explanation",
+      "category": "billing",
+      "context": {
+        "invoice_id": null,
+        "client_reference": null
+      },
+      "status": "open",
+      "disposition": "clarification_requested",
+      "version": 4,
+      "message_count": 3,
+      "attempt_count": 1,
+      "last_error": null,
+      "created_at": "2026-10-20T10:04:01.181767",
+      "updated_at": "2026-10-20T10:04:01.210096",
+      "resolved_at": null
+    },
+    {
+      "id": "d5565e45-a0bd-406d-90cd-4211a5e04188",
+      "customer_id": "alice",
+      "account_id": "alice-active",
+      "subject": "Invoice explanation",
+      "category": "billing",
+      "context": {
+        "invoice_id": null,
+        "client_reference": null
+      },
+      "status": "resolved",
+      "disposition": "answered",
+      "version": 6,
+      "message_count": 4,
+      "attempt_count": 2,
+      "last_error": null,
+      "created_at": "2026-10-20T10:04:01.181767",
+      "updated_at": "2026-10-20T10:04:01.221105",
+      "resolved_at": "2026-10-20T10:04:01.220099"
+    }
+  ],
+  "submission": {
+    "case_id": "d5565e45-a0bd-406d-90cd-4211a5e04188",
+    "message_id": "b203c737-9dcd-48d9-99f3-cb23d8672c58",
+    "replayed": false
+  },
+  "duplicate_submission": {
+    "case_id": "d5565e45-a0bd-406d-90cd-4211a5e04188",
+    "message_id": "b203c737-9dcd-48d9-99f3-cb23d8672c58",
+    "replayed": true
+  },
+  "messages": [
+    {
+      "id": "b203c737-9dcd-48d9-99f3-cb23d8672c58",
+      "sequence": 1,
+      "role": "customer",
+      "content": "Can you explain my latest invoice?",
+      "created_at": "2026-10-20T10:04:01.182774"
+    },
+    {
+      "id": "e00dc807-da34-4d10-a07d-37eed3748606",
+      "sequence": 2,
+      "role": "assistant",
+      "content": "Which invoice date do you mean?",
+      "created_at": "2026-10-20T10:04:01.201908"
+    },
+    {
+      "id": "d4726d6b-01f3-4abc-b438-90cb9973c8f8",
+      "sequence": 3,
+      "role": "customer",
+      "content": "The October invoice.",
+      "created_at": "2026-10-20T10:04:01.210096"
+    },
+    {
+      "id": "c937be78-65f1-41cf-baeb-13db953ca545",
+      "sequence": 4,
+      "role": "assistant",
+      "content": "The invoice reflects your selected subscription plan.",
+      "created_at": "2026-10-20T10:04:01.220099"
+    }
+  ],
+  "events": [
+    {
+      "id": "c136ec80-207d-4bdc-a97a-20bfe9a1fc13",
+      "version": 1,
+      "kind": "created",
+      "actor": "customer",
+      "status": "open",
+      "disposition": null,
+      "details": {},
+      "created_at": "2026-10-20T10:04:01.182774"
+    },
+    {
+      "id": "d2fdb6f1-33ac-4e8f-9276-e5987eded70d",
+      "version": 2,
+      "kind": "processing_started",
+      "actor": "worker",
+      "status": "processing",
+      "disposition": null,
+      "details": {
+        "attempt_id": "dca8e687-6d38-4af5-b614-012552a2305a"
+      },
+      "created_at": "2026-10-20T10:04:01.194273"
+    },
+    {
+      "id": "502648a8-489f-4d59-9c9d-a552d4a5886a",
+      "version": 3,
+      "kind": "outcome_recorded",
+      "actor": "worker",
+      "status": "awaiting_customer",
+      "disposition": "clarification_requested",
+      "details": {
+        "disposition": "clarification_requested",
+        "reply": "Which invoice date do you mean?",
+        "action_id": null,
+        "decision_id": null,
+        "escalation_id": null,
+        "attempt_id": "dca8e687-6d38-4af5-b614-012552a2305a",
+        "message_id": "e00dc807-da34-4d10-a07d-37eed3748606"
+      },
+      "created_at": "2026-10-20T10:04:01.201908"
+    },
+    {
+      "id": "bbbbd43b-bf48-408d-b858-7563c66ae062",
+      "version": 4,
+      "kind": "customer_message",
+      "actor": "customer",
+      "status": "open",
+      "disposition": "clarification_requested",
+      "details": {
+        "message_id": "d4726d6b-01f3-4abc-b438-90cb9973c8f8"
+      },
+      "created_at": "2026-10-20T10:04:01.210096"
+    },
+    {
+      "id": "31d841c7-d92b-4ef0-9d6f-ca0dd08703cd",
+      "version": 5,
+      "kind": "processing_started",
+      "actor": "worker",
+      "status": "processing",
+      "disposition": "clarification_requested",
+      "details": {
+        "attempt_id": "f632d2fc-5c3e-461b-b79f-4c78c62fc9fd"
+      },
+      "created_at": "2026-10-20T10:04:01.216082"
+    },
+    {
+      "id": "3782fb5e-5c91-4653-b395-2f24946fe0b9",
+      "version": 6,
+      "kind": "outcome_recorded",
+      "actor": "worker",
+      "status": "resolved",
+      "disposition": "answered",
+      "details": {
+        "disposition": "answered",
+        "reply": "The invoice reflects your selected subscription plan.",
+        "action_id": null,
+        "decision_id": null,
+        "escalation_id": null,
+        "attempt_id": "f632d2fc-5c3e-461b-b79f-4c78c62fc9fd",
+        "message_id": "c937be78-65f1-41cf-baeb-13db953ca545"
+      },
+      "created_at": "2026-10-20T10:04:01.220099"
+    }
+  ],
+  "attempts": [
+    {
+      "id": "dca8e687-6d38-4af5-b614-012552a2305a",
+      "number": 1,
+      "status": "succeeded",
+      "started_at": "2026-10-20T10:04:01.194273",
+      "expires_at": "2026-10-20T10:05:01.194273",
+      "finished_at": "2026-10-20T10:04:01.201908",
+      "error_code": null,
+      "result": {
+        "disposition": "clarification_requested",
+        "reply": "Which invoice date do you mean?",
+        "action_id": null,
+        "decision_id": null,
+        "escalation_id": null
+      }
+    },
+    {
+      "id": "f632d2fc-5c3e-461b-b79f-4c78c62fc9fd",
+      "number": 2,
+      "status": "succeeded",
+      "started_at": "2026-10-20T10:04:01.216082",
+      "expires_at": "2026-10-20T10:05:01.216082",
+      "finished_at": "2026-10-20T10:04:01.220099",
+      "error_code": null,
+      "result": {
+        "disposition": "answered",
+        "reply": "The invoice reflects your selected subscription plan.",
+        "action_id": null,
+        "decision_id": null,
+        "escalation_id": null
+      }
+    }
+  ]
+}

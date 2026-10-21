@@ -10,7 +10,7 @@ No feature is VERIFIED until every mandatory completion gate passes.
 | C02 | Business domain/database | IMPLEMENTED_UNVERIFIED | C01 | Entire selected scope implemented, including metadata, billing events/lifecycle history, expanded fixtures and atomic reset. Local tests pass; PostgreSQL validation remains blocked. |
 | C03 | Policy ingestion | IMPLEMENTED_UNVERIFIED | C01 | Upload, batch, extraction, versions, scheduled eligibility and deactivation implemented. PostgreSQL runtime verification pending. |
 | C04 | Semantic retrieval | IMPLEMENTED_UNVERIFIED | C01, C03 | Local semantic index, hybrid/reranked search, query reformulation, lifecycle synchronization and tests implemented. PostgreSQL runtime verification pending. |
-| C05 | Support cases | NOT_STARTED | C02 | All acceptance criteria pending |
+| C05 | Support cases | IMPLEMENTED_UNVERIFIED | C01, C02 | Authenticated case API, history, idempotency, finite lifecycle and lease recovery implemented. PostgreSQL concurrency verification pending. |
 | C06 | Model gateway | NOT_STARTED | C01 | All acceptance criteria pending; live verification requires credentials |
 | C07 | Workflow | NOT_STARTED | C04–06 | All acceptance criteria pending |
 | C08 | Business tools | NOT_STARTED | C02, C07 | All acceptance criteria pending |
@@ -193,3 +193,25 @@ Final C04 verification: backend pytest 107 passed, 8 skipped (including 2 C04
 PostgreSQL checks). Ruff lint/format passed across backend and scripts.
 The disposable retrieval demo ran successfully; captured output is stored in
 docs/examples/retrieval-demo.json. Replacement and deactivation assertions passed.
+
+## C05 selected-feature delivery (2026-10-20)
+
+- Migration 0006 adds customer credentials, cases, messages, events, attempts and
+  submission receipts; composite account/customer constraints protect ownership.
+- Expiring/revocable opaque credentials; only hashes persisted. No public token
+  issuance, authentication shortcuts or real credentials in source control.
+- Customer create/read/list/history/follow-up/retry API; categories and status filters.
+- Trusted worker claim/complete/fail hooks, durable leases, stale-attempt fencing,
+  explicit retry and bounded recovery. Administrator inspection and human review.
+- Local acceptance tests cover atomicity, ownership, duplicates, terminal states,
+  failure/restart recovery, filtering, human review and business-reset protection.
+- Portfolio proof: docs/CASES.md, scripts/case_demo.py and captured example output.
+- No model workflow, actual action execution, review assignment, SLA or queue added.
+- PostgreSQL concurrent create/claim/follow-up tests remain unverified while the
+  user-selected local Docker/PostgreSQL runtime is unavailable.
+
+Final C05 verification: backend pytest 125 passed, 10 skipped (including 2 C05
+PostgreSQL concurrency tests); Ruff lint/format passed across backend and scripts.
+The actual customer API demo passed and its credential-free output is captured in
+docs/examples/case-demo.json. Installed-wheel and legacy/empty migration regressions
+are included in the passing backend suite.

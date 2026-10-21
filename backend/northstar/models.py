@@ -37,7 +37,10 @@ class Customer(RecordTimestamps, Base):
 
 class Account(RecordTimestamps, Base):
     __tablename__ = "accounts"
-    __table_args__ = (CheckConstraint("status IN ('ACTIVE','SUSPENDED')", name="status"),)
+    __table_args__ = (
+        CheckConstraint("status IN ('ACTIVE','SUSPENDED')", name="status"),
+        UniqueConstraint("id", "customer_id"),
+    )
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     customer_id: Mapped[str] = mapped_column(ForeignKey("customers.id"), index=True)
     name: Mapped[str] = mapped_column(String(100))
