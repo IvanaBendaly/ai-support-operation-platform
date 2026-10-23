@@ -184,3 +184,9 @@ service synchronize active policies before returning bounded, attributed evidenc
 See [customer authentication, case API and recovery](docs/CASES.md). Migration 0006
 adds durable cases, conversation/outcome history and processing leases. Run
 `python scripts/case_demo.py` for a disposable end-to-end lifecycle demonstration.
+
+## Knowledge admin frontend preview
+
+The new admin UI supports upload, batch preparation, explicit replacements, section
+inspection and review workflows in a session-only preview. See
+[frontend scope and backend integration boundary](docs/KNOWLEDGE_FRONTEND.md).

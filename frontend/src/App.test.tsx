@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import App from './App';
+import App from './Readiness';
 
 describe('service readiness', () => {
   it('rejects malformed success responses', async () => {

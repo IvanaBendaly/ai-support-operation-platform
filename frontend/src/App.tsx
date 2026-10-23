@@ -1,39 +1,51 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import Readiness from './Readiness';
+import Upload from './knowledge/Upload';
+import { Document, Lifecycle, Version, eligible, sampleDocuments, transition } from './knowledge/model';
 
-type Readiness = { status: string; database: string; schema: string; environment: string; version: string };
-
+const size = (bytes: number) => `${(bytes / 1024).toFixed(1)} KiB`;
+function Badge({ state }: { state: Lifecycle }) { return <span className={`badge ${state.toLowerCase().replaceAll(' ', '-')}`}><span aria-hidden="true">●</span> {state}</span>; }
 export default function App() {
-  const [ready, setReady] = useState<Readiness | null>(null);
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  async function refresh() {
-    setLoading(true); setError(''); setReady(null);
-    try {
-      const response = await fetch('/api/ready', { signal: AbortSignal.timeout(8000) });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error?.message || 'The service is unavailable.');
-      if (data.status !== 'ready' || data.database !== 'connected' || typeof data.schema !== 'string') {
-        throw new Error('The service returned an invalid readiness response.');
-      }
-      setReady(data);
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Unable to connect.');
-    } finally { setLoading(false); }
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [uploadBusy, setUploadBusy] = useState(false);
+  const [page, setPage] = useState('Documents');
+  const [upload, setUpload] = useState<{ batch: boolean; target?: string } | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [revision, setRevision] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState('All statuses');
+  const [notice, setNotice] = useState('');
+  const [confirm, setConfirm] = useState<Lifecycle | 'Delete' | null>(null);
+  const [reason, setReason] = useState('');
+  const [audit, setAudit] = useState<string[]>([]);
+  const versions = documents.flatMap(d => d.versions);
+  const doc = documents.find(d => d.document_id === selected);
+  const version = doc?.versions.find(v => v.version_id === revision) ?? doc?.versions.at(-1);
+  const reviewCount = versions.filter(v => v.state === 'Needs review').length;
+  function navigate(next: string) { if (uploadBusy) return; setQuery(''); setFilter('All statuses'); setPage(next); setSelected(null); setUpload(null); setConfirm(null); }
+  function inspect(d: Document, v?: Version) { setSelected(d.document_id); setRevision(v?.version_id ?? d.versions.at(-1)!.version_id); setConfirm(null); }
+  function action() {
+    if (!doc || !version || !confirm) return;
+    if (confirm === 'Rejected' && !reason.trim()) return;
+    if (confirm === 'Delete') { setDocuments(documents.filter(d => d.document_id !== doc.document_id)); setSelected(null); }
+    else setDocuments(documents.map(d => d.document_id === doc.document_id ? transition(d, version.version_id, confirm) : d));
+    const message = `${doc.title} · v${version.revision} · ${confirm}${reason.trim() ? ` · ${reason.trim()}` : ''}`;
+    setAudit([message, ...audit]); setNotice(`${message} (preview only)`); setConfirm(null); setReason('');
   }
-  useEffect(() => { void refresh(); }, []);
-  return <div className="workspace">
-    <aside><a className="brand" href="/" aria-label="Northstar Cloud home"><span className="logo">✦</span> Northstar<span className="cloud">CLOUD</span></a>
-      <p className="nav-label">SUPPORT OPERATIONS</p><a className="nav-current" href="#overview">◈ &nbsp; Overview</a>
-      <div className="sidebar-footer"><span className="avatar">NC</span><div>Northstar workspace<small>Foundation release</small></div></div>
-    </aside>
-    <main id="overview"><header><span>Workspace / Overview</span><span className="tag">{ready?.environment || 'Connecting'}</span></header>
-      <div className="page-heading"><p className="eyebrow">NORTHSTAR CLOUD</p><h1>Support operations</h1><p>A reliable foundation for policy-grounded customer support.</p></div>
-      <section className="status-card" aria-labelledby="service-title"><div className="card-heading"><div><p className="eyebrow">SYSTEM STATUS</p><h2 id="service-title">Service readiness</h2></div><button onClick={() => void refresh()} disabled={loading}>{loading ? 'Checking…' : 'Check again'}</button></div>
-        {loading && <p role="status">Checking the API and database…</p>}
-        {error && <div role="alert" className="error"><strong>Service needs attention</strong><p>{error}</p><small>Check database configuration and run migrations, then try again.</small></div>}
-        {ready && <div role="status" className="healthy"><span className="dot" /><div><strong>Ready for requests</strong><p>Database {ready.database} · Schema {ready.schema}</p></div></div>}
-      </section>
-      <section className="info-grid"><article><span className="step">01</span><h2>Connected infrastructure</h2><p>Readiness checks the database and migration revision. The status above comes directly from the API.</p></article><article><span className="step">02</span><h2>Built in stages</h2><p>Customer cases, policy retrieval, controlled actions, and operator review will appear as their implementation gates pass.</p></article></section>
-      <footer>Northstar Cloud · Fictional SaaS business · No live model calls in this release</footer>
+  const rows = documents.flatMap(d => page === 'Review queue' ? d.versions.filter(v => v.state === 'Needs review').map(v => ({ d, v })) : [{ d, v: d.versions.at(-1)! }]).filter(({ d, v }) => `${d.title} ${v.filename} ${d.category}`.toLowerCase().includes(query.toLowerCase()) && (filter === 'All statuses' || filter === v.state));
+  return <div className="workspace"><aside className="sidebar"><a className="brand" href="#" onClick={() => navigate('Documents')}><span className="logo">✦</span><span>northstar<small>SUPPORT OPERATIONS</small></span></a><p className="nav-label">WORKSPACE</p><nav>{['Documents', 'Review queue', 'Activity', 'System status'].map((name, i) => <button key={name} disabled={uploadBusy} aria-current={page === name ? 'page' : undefined} className={page === name ? 'nav-current' : ''} onClick={() => navigate(name)}><span aria-hidden="true">{['▤', '◷', '↗', '◈'][i]}</span>{name}{name === 'Review queue' && <span className="nav-count">{reviewCount}</span>}</button>)}</nav><div className="sidebar-callout"><span>◎</span><strong>Knowledge, with confidence.</strong><p>One place to prepare, review and publish trusted documents.</p></div><div className="sidebar-footer"><span className="avatar">AD</span><div>Admin workspace<small>Frontend preview</small></div></div></aside>
+    <main><header><span>Workspace <span className="slash">/</span> Knowledge <span className="slash">/</span> <strong>{page}</strong></span><span className="tag">◉ Admin preview</span></header>
+      <div className="preview-banner"><span><strong>Session preview</strong> · Changes disappear on refresh. Backend validation, storage, Docling and AI review are not connected.</span><button onClick={() => { if (!documents.length) { setDocuments(sampleDocuments()); setNotice('Example documents loaded. All content and statuses are illustrative.'); } }} disabled={documents.length > 0 || uploadBusy}>Load examples</button></div>
+      {notice && <div className="notice" role="status">{notice}<button aria-label="Dismiss notification" onClick={() => setNotice('')}>×</button></div>}
+      {upload ? <Upload documents={documents} {...upload} onBusy={setUploadBusy} onSave={setDocuments} onClose={() => setUpload(null)} /> : page === 'System status' ? <div className="readiness-wrapper"><Readiness /></div> : page === 'Activity' ? <><div className="page-heading"><p className="eyebrow">WORKSPACE HISTORY</p><h1>Activity</h1><p>Lifecycle actions taken in this preview session. This is not a server audit log.</p></div><section className="panel">{audit.length ? audit.map((a, i) => <p key={i}>{a}</p>) : <div className="empty"><h2>No lifecycle actions yet</h2><p>Review or deactivate a version to see an entry here.</p></div>}</section></> : doc && version ? <>
+        <button className="text-button back" onClick={() => { setSelected(null); setConfirm(null); }}>← Back to {page.toLowerCase()}</button><div className="heading-row"><div className="page-heading"><p className="eyebrow">{doc.category}</p><h1>{doc.title}</h1><p>{version.filename} · {size(version.size)}</p></div><button className="primary" onClick={() => setUpload({ batch: false, target: doc.document_id })}>↑ Upload replacement</button></div>
+        <div className="detail-layout"><section className="panel"><div className="card-heading"><h2>Extracted sections <span className="count">{version.sections.length}</span></h2><Badge state={version.state} /></div><div className="note">{eligible(version) ? 'Published and active in this preview. No search or embedding index is connected.' : 'Not eligible for search or embedding indexing. Publication is required.'}</div>{version.warnings.map(w => <p className="warning" key={w}>ⓘ {w}</p>)}{version.sections.length ? version.sections.map((s, i) => <article className="section-card" key={s.id}><div className="section-source"><span>SECTION {String(i + 1).padStart(2, '0')}</span><span>{s.source}</span></div><h3>{s.title}</h3><p className="section-text">{s.text}</p><small className="mono">{s.id}</small></article>) : <div className="empty"><span className="empty-icon">▤</span><h2>Waiting for document extraction</h2><p>The backend worker will use Docling to extract this {version.format} file and preserve page, heading and table references.</p><p>No sections or embeddings have been generated.</p></div>}</section>
+        <div><section className="panel"><h2>Version history</h2><p>One document. Explicit revisions.</p>{[...doc.versions].reverse().map(v => <button key={v.version_id} className={`version-button ${v.version_id === version.version_id ? 'selected' : ''}`} onClick={() => { setRevision(v.version_id); setConfirm(null); }}><strong>Version {v.revision}</strong><Badge state={v.state} /><small>{new Date(v.created).toLocaleDateString()}</small></button>)}</section><section className="panel identity"><h2>Source details</h2><dl><dt>Document ID · stable identity</dt><dd>{doc.document_id}</dd><dt>Version ID · this revision</dt><dd>{version.version_id}</dd><dt>SHA-256 · original bytes</dt><dd>{version.original_hash}</dd><dt>Normalized text fingerprint</dt><dd>{version.content_hash ?? 'Not computed'}</dd><dt>AI review</dt><dd>Not connected</dd></dl></section><section className="panel"><h2>Lifecycle actions</h2><p>Actions affect this preview session only.</p><div className="lifecycle-actions">{version.state === 'Needs review' && <><button className="primary" onClick={() => setConfirm('Published')}>Approve & publish</button><button onClick={() => setConfirm('Rejected')}>Reject version</button></>}{version.state === 'Published' && <button onClick={() => setConfirm('Inactive')}>Deactivate version</button>}<button className="danger" onClick={() => setConfirm('Delete')}>Delete document</button></div>{confirm && <div className="confirmation" role="region" aria-label="Confirm lifecycle action"><h3>{confirm === 'Delete' ? 'Delete all versions?' : confirm === 'Published' ? 'Publish this version?' : `${confirm === 'Rejected' ? 'Reject' : 'Deactivate'} this version?`}</h3><p>{confirm === 'Delete' ? 'The document and every revision will be removed from this session.' : confirm === 'Published' ? 'This version becomes active. Any currently published version will be superseded.' : 'This version will remain excluded from knowledge retrieval. Older versions are not reactivated.'}</p><label>{confirm === 'Rejected' ? 'Reason (required)' : 'Reason (optional)'}<textarea value={reason} onChange={e => setReason(e.target.value)} maxLength={500} /></label><div className="form-actions"><button onClick={() => { setConfirm(null); setReason(''); }}>Cancel</button><button className="primary" disabled={confirm === 'Rejected' && !reason.trim()} onClick={action}>Confirm in preview</button></div></div>}</section></div></div>
+      </> : <><div className="heading-row"><div className="page-heading"><p className="eyebrow">YOUR KNOWLEDGE WORKSPACE</p><h1>{page === 'Review queue' ? 'Review queue' : 'Documents'}</h1><p>{page === 'Review queue' ? 'Inspect extracted content before making it available to your team.' : 'Manage the source of truth behind every answer.'}</p></div><div className="heading-actions"><button onClick={() => setUpload({ batch: true })}>Batch upload</button><button className="primary" onClick={() => setUpload({ batch: false })}>＋ Upload document</button></div></div>
+      <div className="stats">{[['Logical documents', documents.length, 'Stable document identities'], ['Published versions', versions.filter(eligible).length, 'Active in this preview'], ['Needs review', reviewCount, 'Awaiting a human decision'], ['Awaiting extraction', versions.filter(v => v.state === 'Awaiting worker').length, 'Requires backend worker']].map(([label, value, caption], i) => <article key={label}><div><span>{label}</span><span className={`stat-symbol symbol-${i}`} aria-hidden="true">{['▤', '✓', '◷', '↻'][i]}</span></div><strong>{value}</strong><small>{caption}</small></article>)}</div>
+      <section className="library panel"><div className="library-heading"><h2>{page === 'Review queue' ? 'Versions awaiting review' : 'Document library'} <span className="count">{rows.length}</span></h2><span className="muted">{page === 'Review queue' ? 'All pending revisions' : 'Latest revision per document'}</span></div><div className="toolbar"><label className="search"><span aria-hidden="true">⌕</span><input aria-label="Search documents" placeholder="Search documents, files or collections…" value={query} onChange={e => setQuery(e.target.value)} /></label><select aria-label="Filter by status" value={filter} onChange={e => setFilter(e.target.value)}><option>All statuses</option>{['Published', 'Needs review', 'Awaiting worker', 'Inactive', 'Rejected', 'Superseded'].map(s => <option key={s}>{s}</option>)}</select></div>
+      {rows.length ? <div className="table-scroll"><table><thead><tr><th>DOCUMENT NAME</th><th>STATUS</th><th>VERSION</th><th>SECTIONS</th><th>ADDED</th><th><span className="sr-only">Open</span></th></tr></thead><tbody>{rows.map(({ d, v }) => <tr key={v.version_id}><td><div className="document-cell"><span className={`file-icon ${v.format.toLowerCase()}`}>{v.format}</span><div><button className="document-link" onClick={() => inspect(d, v)}>{d.title}</button><small>{d.category} · {size(v.size)}</small></div></div></td><td><Badge state={v.state} /></td><td><span className="version-chip">v{v.revision}</span></td><td>{v.sections.length || '—'}</td><td>{new Date(v.created).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</td><td><button className="text-button" aria-label={`Inspect ${d.title}`} onClick={() => inspect(d, v)}>↗</button></td></tr>)}</tbody></table></div> : <div className="empty"><span className="empty-icon">▤</span><h2>{documents.length ? 'No matching documents' : 'Your knowledge starts here'}</h2><p>{documents.length ? 'Try another search or status filter.' : 'Upload your first source document, or load examples to explore the workflow.'}</p>{!documents.length && <button className="primary" onClick={() => setUpload({ batch: false })}>Upload your first document</button>}</div>}<div className="table-footer">{rows.length} {rows.length === 1 ? 'result' : 'results'}<span>Private sources · Human-directed versioning</span></div></section>
+      <div className="boundary"><span aria-hidden="true">◇</span><div><strong>Trusted knowledge starts with a review.</strong><p>Only published, active versions belong in search and embedding indexing. Uploading or extracting a file does not publish it.</p></div><span className="tag">ELIGIBILITY BOUNDARY</span></div></>}
+      <footer>Northstar Cloud <span>Knowledge administration · Frontend phase</span></footer>
     </main></div>;
 }
