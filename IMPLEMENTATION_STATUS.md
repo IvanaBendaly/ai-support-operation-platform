@@ -215,3 +215,16 @@ PostgreSQL concurrency tests); Ruff lint/format passed across backend and script
 The actual customer API demo passed and its credential-free output is captured in
 docs/examples/case-demo.json. Installed-wheel and legacy/empty migration regressions
 are included in the passing backend suite.
+
+
+## A/B extraction extension (2026-10-27)
+
+- Added Docling native PDF and DOCX extraction, with no OCR or model downloads.
+- Added durable queued processing, expiring worker claims, isolated conversion,
+  timeouts, bounded crash recovery and atomic section/status completion (0007).
+- Added indexed pre-extraction byte-hash lookup, PostgreSQL same-hash submission
+  serialization, normalized duplicate status/references and retrieval exclusion.
+- HTTP uploads now return QUEUED; poll document inspection for the final state.
+  The synchronous service path remains for fixtures. Frontend integration is unchanged.
+- Full backend checks: 141 passed, 11 skipped; Ruff and dependency checks pass.
+  Docker/PostgreSQL are unavailable here; no container/primary-database execution claimed.

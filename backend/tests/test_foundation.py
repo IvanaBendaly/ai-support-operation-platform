@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 from unittest.mock import patch
@@ -146,3 +147,108 @@ def test_postgres_empty_database_migrations(postgres_engine):
         assert client.get("/api/ready").status_code == 200
     command.downgrade(Config("alembic.ini"), "base")
     command.upgrade(Config("alembic.ini"), "head")
+
+
+def test_compatibility_exports_and_engine_mocking():
+    from northstar import api, main, system
+
+    assert api.create_app is main.create_app
+    assert api.expected_revision is system.expected_revision
+    engine = make_engine(configuration())
+    try:
+        with TestClient(api.create_app(configuration(), engine)) as client:
+            with patch.object(engine, "connect", side_effect=OperationalError("private", {}, None)):
+                response = client.get("/api/ready")
+            assert response.status_code == 503
+            assert response.json()["error"]["code"] == "database_not_ready"
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.parametrize("owned", [True, False])
+@pytest.mark.parametrize("exceptional", [True, False])
+def test_engine_ownership_during_lifespan(owned, exceptional):
+    engine = make_engine(configuration())
+    try:
+        with patch("northstar.main.make_engine", return_value=engine) as factory:
+            app = create_app(configuration(), None if owned else engine)
+        assert factory.call_count == int(owned)
+
+        async def lifecycle():
+            async with app.router.lifespan_context(app):
+                if exceptional:
+                    raise RuntimeError("interrupted lifecycle")
+
+        with patch.object(engine, "dispose") as dispose:
+            if exceptional:
+                with pytest.raises(RuntimeError, match="interrupted lifecycle"):
+                    asyncio.run(lifecycle())
+            else:
+                asyncio.run(lifecycle())
+            assert dispose.call_count == int(owned)
+    finally:
+        engine.dispose()
+
+
+def test_unexpected_error_logs_stack_locations_without_sensitive_values(capsys):
+    engine = make_engine(configuration())
+    app = create_app(configuration(), engine)
+
+    @app.get("/test-stack")
+    def broken_route():
+        raise RuntimeError("PRIVATE_EXCEPTION_VALUE")
+
+    try:
+        with TestClient(app) as client:
+            response = client.get("/test-stack")
+        records = [json.loads(line) for line in capsys.readouterr().err.splitlines()]
+        failure = next(record for record in records if record["event"] == "request_failed")
+        completed = next(record for record in records if record["event"] == "request_completed")
+        request_id = response.headers["x-request-id"]
+        assert failure["request_id"] == completed["request_id"] == request_id
+        assert failure["exception_type"] == "RuntimeError"
+        assert any(frame["function"] == "broken_route" for frame in failure["traceback"])
+        assert all(set(frame) == {"file", "line", "function"} for frame in failure["traceback"])
+        assert "PRIVATE_EXCEPTION_VALUE" not in json.dumps(records)
+        assert response.status_code == 500
+        assert response.json() == {
+            "error": {
+                "code": "internal_error",
+                "message": "The request could not be completed.",
+                "request_id": request_id,
+                "details": [],
+            }
+        }
+    finally:
+        engine.dispose()
+
+
+def test_domain_error_contract_and_system_openapi():
+    from northstar.domain import DomainError
+
+    engine = make_engine(configuration())
+    app = create_app(configuration(), engine)
+
+    @app.get("/test-domain")
+    def domain_failure():
+        raise DomainError("conflict", "Controlled domain message.", 409)
+
+    try:
+        with TestClient(app) as client:
+            response = client.get("/test-domain")
+            assert response.status_code == 409
+            assert response.json() == {
+                "error": {
+                    "code": "conflict",
+                    "message": "Controlled domain message.",
+                    "request_id": response.headers["x-request-id"],
+                    "details": [],
+                }
+            }
+            paths = client.get("/openapi.json").json()["paths"]
+            assert paths["/api/health"]["get"]["operationId"] == "health_api_health_get"
+            ready = paths["/api/ready"]["get"]
+            assert ready["tags"] == ["System"]
+            assert ready["responses"]["503"]["description"] == "Not ready"
+    finally:
+        engine.dispose()

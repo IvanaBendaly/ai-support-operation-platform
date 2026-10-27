@@ -3,7 +3,8 @@
 ## Runtime and administration
 
 Run the existing setup/migration commands; Alembic revision `0004` creates the
-knowledge tables. Configure `NORTHSTAR_ADMIN_TOKEN` with a private random value of
+knowledge tables; revision `0007` adds extraction claims and byte-hash indexing.
+Run `docker compose up --build --wait backend worker` to start the API and worker. Configure `NORTHSTAR_ADMIN_TOKEN` with a private random value of
 at least 32 characters in the ignored `.env`. Compose forwards it to the backend.
 An unset/empty token disables administration (503). Incorrect bearer credentials
 return 401 before reading the upload. This is the minimal administrative boundary;
@@ -31,15 +32,20 @@ Batch entries commit independently; the ordered response reports each result.
 Dates use timezone-aware ISO 8601 timestamps. Omitted `valid_from` means now;
 `valid_until`, if set, must be later. Unknown metadata is rejected.
 
-A successful submission returns `{duplicate, document}`. Processing failures
-return an inspectable document with `status: FAILED`, a safe error code and no
-sections; HTTP 200 means the attempt was recorded, not that extraction succeeded.
-For example, upload `broken.pdf` containing plain text to obtain `corrupt_pdf`.
-Empty text produces `empty_document` or `empty_or_unreadable_text`. Validation,
-authorization and request-size failures use the existing API error envelope.
-A database write failure rolls back the entire attempt and returns the existing
-generic 500 response; no READY document or partial sections remain. Retry after
-resolving the storage failure. No PROCESSING row can be stranded by interruption.
+A valid submission returns `{duplicate, document}` with `status: QUEUED` (HTTP
+200). The worker progresses it to PROCESSING and then READY, FAILED or DUPLICATE.
+Poll `GET /{document_id}` for completion. Basic format/empty-file failures are
+recorded immediately as FAILED; conversion failures are recorded by the worker.
+Neither acceptance nor HTTP 200 means extraction succeeded.
+
+The database queue survives restarts. Claims expire after 180 seconds, allowing a
+replacement worker to recover work. Conversion runs in an isolated subprocess with
+a 120-second timeout. After three interrupted claims the document fails explicitly.
+Claim tokens prevent stale workers from publishing. Conversion errors/timeouts are
+terminal; database errors leave the claim recoverable. Sections and READY commit in
+one transaction. The synchronous internal ingestion path is retained for fixtures;
+HTTP endpoints always enqueue. `python -m northstar.retrieval.worker --once` handles
+at most one job, without requiring Redis or a task broker.
 
 ## Model and invariants
 
@@ -79,19 +85,25 @@ unique constraints protect concurrent first uploads and cross-policy duplicates.
 Concurrent conflicts return 409 and may be retried after inspection.
 Versions include failed attempts, so numbering can contain failed entries.
 
-Normalized content is globally deduplicated, including inactive historical
-versions. A repeated upload returns the existing document and does **not** apply
-new policy identifiers, validity dates or activation changes. Inspect the returned
-policy/version/lifecycle before using it. Historical content cannot be silently
-republished under another policy. Replacements require a changed document.
+SHA-256 byte hashes are looked up before extraction, including pending, failed
+and historical records. Repeated bytes return the existing record without creating
+another job or changing its policy. PostgreSQL transaction advisory locks serialize
+same-byte submissions across policies; an indexed lookup supports existing data.
 
-Processing state is READY or FAILED. Lifecycle state is derived at read time:
-ACTIVE, SCHEDULED, SUPERSEDED, EXPIRED, INACTIVE or FAILED. The highest successful
-version whose effective time has arrived supersedes earlier versions permanently.
-A failed or future replacement leaves the current version usable. Expiry or
-individual deactivation of the new version does not restore obsolete policy.
-Policy deactivation also blocks future scheduled versions. No worker or timer is
-needed: eligibility changes at the timestamp boundary on the next query.
+After extraction, normalized content is globally deduplicated. In the worker path,
+a match becomes DUPLICATE with `duplicate_of` referencing the existing version and
+no sections. A database unique constraint arbitrates concurrent normalized matches.
+The synchronous fixture path continues to return the existing document directly.
+Neither path silently creates version relationships or republishes historical content.
+
+Processing states are QUEUED, PROCESSING, READY, FAILED and DUPLICATE. Lifecycle
+states additionally distinguish ACTIVE, SCHEDULED, SUPERSEDED, EXPIRED and INACTIVE.
+Only READY versions participate in eligibility. A queued, processing, failed or
+duplicate replacement does not supersede the current successful policy. The highest
+successful version whose effective time has arrived supersedes earlier versions
+permanently. Expiry/deactivation never restores obsolete content. Policy deactivation
+also blocks scheduled versions. Inspection reports attempts, errors and duplicate
+references without exposing internal claim tokens.
 
 `retrieval.service.eligible_documents(at)` and `retrieval_sections(session, at)`
 are the authoritative C04 integration boundary. Any future index must filter or
@@ -100,32 +112,37 @@ when chunks are cached. A static index must never treat READY as active. C04 now
 sequence, not a complete index invalidation cursor.
 
 Business seed/reset lists explicit business tables, leaving knowledge untouched.
-No support-case state is stored in the knowledge tables.
+No support-case state is stored in the knowledge tables; revision `0007` adds extraction claims and byte-hash indexing.
+Run `docker compose up --build --wait backend worker` to start the API and worker.
 
 ## Extraction and references
 
-UTF-8 Markdown/plain text and extractable, unencrypted PDF are supported. Unicode
-NFC, newline normalization and trailing whitespace cleanup retain case, numbers,
-negation, punctuation and Markdown syntax. Markdown headings and source line
-positions, or PDF page numbers, are retained. Sections are at most 2,000 characters
-with character offsets within their source unit; a long clause may span sections.
-Consumers should include adjacent sections when needed. IDs are deterministic
-within an immutable document version and remain stable across reads/duplicate uploads.
+UTF-8 Markdown/plain text, extractable unencrypted PDF, and DOCX are supported.
+TXT/MD uses direct decoding. PDF/DOCX uses Docling's pinned modular distribution
+(`docling-slim`): the native PDF pipeline retains text-cell/page references without
+OCR, learned layout/table reconstruction, remote services or model downloads; the
+DOCX pipeline retains headings, items and table content. DOCX page numbers are not
+invented when absent. PDF reading order follows native parser output; inspect complex
+layouts before using their sections.
 
-PDFs are limited to 200 pages, 5 MiB decoded page content, and one million extracted
-characters. Short text, replacement characters and empty PDF pages trigger quality
-warnings; empty/scanned-only, corrupt, encrypted and highly unreadable files fail.
-These are heuristics, not guarantees of semantic extraction fidelity. Administrators
-should inspect warned documents. PDFs with complex layout and OCR are out of scope.
-The extractor follows [pypdf's text extraction guidance](https://pypdf.readthedocs.io/en/stable/user/extract-text.html),
-including decoded page-stream checks. As documented upstream, decoding occurs before
-the stream size can be checked; serve this endpoint only to trusted administrators
-and use container memory limits for hostile-file isolation.
+Unicode NFC, newline normalization and trailing whitespace cleanup retain case,
+numbers, negation, punctuation and leading indentation. Markdown headings and line
+positions, Docling item/page/heading references, and offsets are preserved. Sections
+are at most 2,000 characters; IDs remain deterministic within an immutable revision.
+
+Limits include 5 MiB uploaded bytes, 200 PDF pages, one million extracted characters,
+and DOCX archive limits of 2,000 entries/25 MiB expanded data. The worker container
+has a 1 GiB memory limit. Scanned-only/empty content, corrupt input and unreadable
+text fail. Short or replacement-character-containing text receives quality warnings.
+The ingestion path never creates embeddings.
+
+Docling references: [native PDF pipeline](https://docling-project.github.io/docling/usage/advanced_options/)
+and [modular package configuration](https://github.com/docling-project/docling/blob/main/pyproject.toml).
 
 ## Verification
 
-`python -m pytest tests/test_knowledge.py -q` covers real text-bearing PDF, Markdown,
-plain text, unsupported/corrupt/scanned/empty input, source references, duplicate
+`python -m pytest tests/test_knowledge.py tests/test_extraction_worker.py -q` covers real text-bearing PDF, DOCX with headings/tables, Markdown,
+plain text, worker restart/recovery, claim fencing and transaction rollback, unsupported/corrupt/scanned/empty input, source references, duplicate
 normalization, validity boundaries, failed replacement, deactivation, atomic rollback,
 batch API, auth, size limits, inspection, quality warnings and reset isolation.
 The full suite also verifies empty/legacy migrations, schema parity, packaged wheel

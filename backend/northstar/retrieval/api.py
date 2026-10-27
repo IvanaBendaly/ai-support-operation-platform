@@ -74,6 +74,7 @@ async def upload(request: Request, policy_id: str | None = None):
             metadata.valid_from,
             metadata.valid_until,
             policy_id is not None,
+            defer=True,
         )
         return result
 
@@ -149,6 +150,7 @@ async def batch(request: Request):
                         identifier,
                         file.filename or "",
                         data,
+                        defer=True,
                     )
                 )
             except DomainError as exc:

@@ -66,3 +66,13 @@ refunds, same-key replay, and reset; execution requires a disposable PostgreSQL 
 - Customer-facing status, case API and administrator review: cases/api.py.
 - Idempotency, history, recovery and failures: CaseService and tests/test_cases.py.
 - Portfolio proof and worker contract: CASES.md and scripts/case_demo.py.
+
+
+## A/B durable extraction extension
+
+- Docling native PDF/DOCX and conservative text preparation: retrieval/extraction.py.
+- Pre-extraction byte deduplication and queue submission: retrieval/service.py and api.py.
+- Claims, crash recovery, timeout isolation and transactional completion: retrieval/worker.py.
+- Processing state and hash index migration: 0007_extraction_jobs.py.
+- Real DOCX tables/headings, durable CLI worker, duplicate exclusion, fencing and failures:
+  tests/test_extraction_worker.py; API queue transition coverage: tests/test_knowledge.py.

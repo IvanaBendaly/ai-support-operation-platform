@@ -10,13 +10,13 @@ illustrative records. Browser refresh discards all documents and lifecycle actio
 No original files, credentials, or extracted content are persisted to browser storage
 or uploaded. The existing live readiness check is available under System status.
 
-The existing C03 API automatically activates successful uploads, names a revision
-`document_id`, and lacks the worker/approval contract in the requested architecture.
-Consequently the new UI deliberately does not call its mutation endpoints. Backend
-integration is a subsequent phase; the preview is not a production admin security
-boundary. Authentication, permissions, authoritative file inspection, private object
-storage, worker jobs, AI classification, audit persistence and retrieval enforcement
-remain server responsibilities.
+The backend now supports Docling PDF/DOCX extraction and a durable worker queue.
+It publishes successful effective revisions automatically and uses `policy_id` for
+logical identity and revision `id` for a version. This preview's review/approval
+workflow and identifiers are not yet integrated with that API. The preview does
+not call mutation endpoints and is not a production admin security boundary.
+Authentication, permissions, authoritative inspection, job processing and persistent
+retrieval eligibility remain server responsibilities.
 
 ## Implemented flows
 
@@ -32,8 +32,8 @@ remain server responsibilities.
   Normalization preserves leading indentation, case, punctuation, numbers and negation;
   it only normalizes Unicode/newlines and removes trailing line whitespace.
 - PDF/DOCX remain **Awaiting worker**. Their contents are neither parsed nor validated
-  as genuine PDF/DOCX files by the browser. Docling and page/table references belong to
-  the worker phase. No AI classification or embeddings are simulated.
+  as genuine PDF/DOCX files by the browser. The backend worker now provides Docling extraction and source references, but
+  this preview is not connected to it. No AI classification or embeddings are simulated.
 - Review queue, confirmable preview approval/publication, rejection with reason,
   deactivation, whole-document deletion and a session activity list. Publication
   supersedes an existing published revision; deactivation never revives old revisions.

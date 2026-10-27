@@ -12,6 +12,7 @@ from northstar.config import Settings
 from northstar.domain import DomainError
 from northstar.retrieval.models import Document, Section
 from northstar.retrieval.service import KnowledgeService, describe, retrieval_sections
+from northstar.retrieval.worker import run_once
 
 NOW = datetime(2026, 10, 20, tzinfo=UTC)
 TOKEN = "test-administrator-token-not-real-1234"
@@ -159,6 +160,8 @@ def test_api_upload_inspection_batch_and_deactivate(business):
         )
         assert response.status_code == 200, response.text
         doc = response.json()["document"]
+        assert doc["status"] == "QUEUED"
+        assert run_once(sessions)
         assert client.get("/api/admin/documents/" + doc["id"]).json()["sections"]
         assert len(client.get("/api/admin/documents").json()) == 1
         response = client.post(
@@ -176,7 +179,13 @@ def test_api_upload_inspection_batch_and_deactivate(business):
             ],
         )
         assert response.status_code == 200, response.text
-        assert [r["document"]["status"] for r in response.json()] == ["READY", "FAILED"]
+        assert [r["document"]["status"] for r in response.json()] == ["QUEUED", "QUEUED"]
+        while run_once(sessions):
+            pass
+        assert [
+            client.get("/api/admin/documents/" + r["document"]["id"]).json()["status"]
+            for r in response.json()
+        ] == ["READY", "FAILED"]
         assert client.post("/api/admin/documents/policies/policy/deactivate").status_code == 200
         assert client.get("/api/admin/documents/" + doc["id"]).json()["lifecycle"] == "INACTIVE"
         assert client.get("/api/admin/documents/missing").status_code == 404

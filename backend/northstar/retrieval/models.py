@@ -32,7 +32,10 @@ class Document(Base, RecordTimestamps):
         UniqueConstraint("policy_id", "version"),
         UniqueConstraint("content_hash"),
         CheckConstraint("version > 0", name="positive_version"),
-        CheckConstraint("status IN ('READY', 'FAILED')", name="processing_status"),
+        CheckConstraint(
+            "status IN ('QUEUED','PROCESSING','READY','FAILED','DUPLICATE')",
+            name="processing_status",
+        ),
         CheckConstraint("valid_until IS NULL OR valid_until > valid_from", name="valid_period"),
     )
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
@@ -40,10 +43,14 @@ class Document(Base, RecordTimestamps):
     version: Mapped[int] = mapped_column(Integer)
     filename: Mapped[str] = mapped_column(String(255))
     media_type: Mapped[str] = mapped_column(String(100))
-    original_hash: Mapped[str] = mapped_column(String(64))
+    original_hash: Mapped[str] = mapped_column(String(64), index=True)
     content_hash: Mapped[str | None] = mapped_column(String(64))
     original: Mapped[bytes] = mapped_column(LargeBinary)
     status: Mapped[str] = mapped_column(String(20))
+    lease_token: Mapped[str | None] = mapped_column(String(36))
+    lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    duplicate_of: Mapped[str | None] = mapped_column(String(36))
     error: Mapped[str | None] = mapped_column(String(100))
     warnings: Mapped[list] = mapped_column(JSON)
     valid_from: Mapped[datetime] = mapped_column(DateTime(timezone=True))

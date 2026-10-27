@@ -10,7 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, aliased, sessionmaker
 
 from northstar.domain import DomainError
-from northstar.retrieval.extraction import MAX_BYTES, IngestionError, extract
+from northstar.retrieval.extraction import MAX_BYTES, IngestionError, extract, validate_file
 from northstar.retrieval.models import Document, Policy, Section
 
 
@@ -62,8 +62,8 @@ def describe(
     at = at or datetime.now(UTC)
     active = session.scalar(eligible_documents(at).where(Document.id == document.id)) is not None
     policy = session.get(Policy, document.policy_id)
-    if document.status == "FAILED":
-        lifecycle = "FAILED"
+    if document.status != "READY":
+        lifecycle = document.status
     elif not document.enabled or not policy.enabled:
         lifecycle = "INACTIVE"
     elif utc(document.valid_from) > at:
@@ -86,6 +86,8 @@ def describe(
             "content_hash",
             "status",
             "error",
+            "attempts",
+            "duplicate_of",
             "warnings",
             "valid_from",
             "valid_until",
@@ -116,6 +118,8 @@ class KnowledgeService:
         valid_from: datetime | None = None,
         valid_until: datetime | None = None,
         replace: bool = False,
+        *,
+        defer: bool = False,
     ) -> dict:
         if len(data) > MAX_BYTES:
             raise DomainError("file_too_large", "File exceeds 5 MiB.", 413)
@@ -127,6 +131,22 @@ class KnowledgeService:
         if valid_until and valid_until <= valid_from:
             raise DomainError("invalid_period", "Expiry must follow the effective timestamp.", 422)
         filename = filename.replace("\\", "/").rsplit("/", 1)[-1][:255]
+        original_hash = hashlib.sha256(data).hexdigest()
+        # Hash equality never establishes a new policy/version relationship.
+        with self.sessions() as session:
+            if replace and session.get(Policy, policy_id) is None:
+                raise DomainError("not_found", "Policy does not exist.", 404)
+            duplicate = session.scalar(
+                select(Document)
+                .where(Document.original_hash == original_hash)
+                .order_by(Document.created_at, Document.id)
+                .limit(1)
+            )
+            if duplicate:
+                return {
+                    "duplicate": True,
+                    "document": describe(session, duplicate, include_sections=True),
+                }
         document_id = str(uuid4())
         media, content_hash, sections, warnings, failure = (
             "application/octet-stream",
@@ -136,12 +156,32 @@ class KnowledgeService:
             None,
         )
         try:
-            media, content, sections, warnings = extract(filename, data)
-            content_hash = hashlib.sha256(content.encode()).hexdigest()
+            media = validate_file(filename, data)
+            if not defer:
+                media, content, sections, warnings = extract(filename, data)
+                content_hash = hashlib.sha256(content.encode()).hexdigest()
         except IngestionError as exc:
             failure = str(exc)
         try:
             with self.sessions.begin() as session:
+                if session.bind.dialect.name == "postgresql":
+                    from sqlalchemy import text
+
+                    session.execute(
+                        text("SELECT pg_advisory_xact_lock(:key)"),
+                        {"key": int(original_hash[:15], 16)},
+                    )
+                duplicate = session.scalar(
+                    select(Document)
+                    .where(Document.original_hash == original_hash)
+                    .order_by(Document.created_at, Document.id)
+                    .limit(1)
+                )
+                if duplicate:
+                    return {
+                        "duplicate": True,
+                        "document": describe(session, duplicate, include_sections=True),
+                    }
                 policy = session.scalar(
                     select(Policy).where(Policy.id == policy_id).with_for_update()
                 )
@@ -171,10 +211,10 @@ class KnowledgeService:
                     version=policy.revision,
                     filename=filename,
                     media_type=media,
-                    original_hash=hashlib.sha256(data).hexdigest(),
+                    original_hash=original_hash,
                     content_hash=content_hash,
                     original=data,
-                    status="FAILED" if failure else "READY",
+                    status="FAILED" if failure else "QUEUED" if defer else "READY",
                     error=failure,
                     warnings=warnings,
                     valid_from=valid_from,
