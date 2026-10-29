@@ -34,3 +34,17 @@ def test_required_postgres_check_cannot_silently_skip(tmp_path):
     )
     assert result.returncode == 1
     assert "Set NORTHSTAR_TEST_DATABASE_URL" in result.stderr
+
+
+def test_setup_refuses_a_python_other_than_312():
+    import importlib.util
+
+    import pytest
+
+    spec = importlib.util.spec_from_file_location("dev", SCRIPT)
+    dev = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(dev)
+    dev.require_python((3, 12), "ok")
+    for version in [(3, 11), (3, 13)]:
+        with pytest.raises(RuntimeError, match="Python 3.12 is required"):
+            dev.require_python(version, "The existing .venv")

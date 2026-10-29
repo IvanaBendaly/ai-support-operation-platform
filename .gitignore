@@ -21,4 +21,7 @@ build/
 coverage/
 .test-objects/
 evaluation-results/
-.test-run*/
+.test-*/
+
+# Private Compose overrides (credentials, LlamaExtract)
+compose.override.yaml

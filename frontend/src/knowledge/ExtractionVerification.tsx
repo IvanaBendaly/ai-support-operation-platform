@@ -37,7 +37,7 @@ export default function ExtractionVerification({ document, token, onSaved }: {
     try {
       const response = await fetch(`/api/admin/documents/${document.id}/verification`, {
         method: 'POST', cache: 'no-store', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ decision, reason, revision: document.extraction_revision, ...(decision === 'CORRECT' ? { corrections: sections } : {}) }),
+        body: JSON.stringify({ decision, reason, revision: document.extraction_revision, ...(decision === 'CORRECT' ? { corrections: sections.map(({ source, text }) => ({ source, text })) } : {}) }),
       });
       if (!response.ok) { const body = await response.json(); throw new Error(body.error?.message ?? body.detail ?? 'Verification failed.'); }
       await onSaved();

@@ -18,8 +18,30 @@ def run(command: list[str], cwd: Path = ROOT) -> None:
 def executable(name: str) -> str:
     found = shutil.which(name)
     if not found:
-        raise RuntimeError(f"Required executable not found: {name}. See README.md prerequisites.")
+        raise RuntimeError(
+            f"Required executable not found: {name}. See docs/guides/SETUP.md prerequisites."
+        )
     return found
+
+
+def require_python(version: tuple[int, int], label: str) -> None:
+    """The lockfile pins Python 3.12 binaries; another version breaks native packages."""
+    if tuple(version[:2]) != (3, 12):
+        raise RuntimeError(
+            f"{label} is Python {version[0]}.{version[1]}; Python 3.12 is required. "
+            "On Windows run: py -3.12 scripts/dev.py setup"
+        )
+
+
+def venv_version(python: Path) -> tuple[int, int]:
+    output = subprocess.run(
+        [str(python), "-c", "import sys; print(*sys.version_info[:2])"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    major, minor = output.split()
+    return int(major), int(minor)
 
 
 def main() -> int:
@@ -39,7 +61,10 @@ def main() -> int:
             pnpm = executable("pnpm")
             run([executable("node"), "--version"])
             if not python.is_file():
+                require_python(sys.version_info, "The interpreter running this script")
                 run([sys.executable, "-m", "venv", str(ROOT / ".venv")])
+            # Never install into an existing environment of another version.
+            require_python(venv_version(python), "The existing .venv")
             run([str(python), "-m", "pip", "install", "-r", "backend/requirements.lock"])
             run(
                 [

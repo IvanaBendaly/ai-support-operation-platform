@@ -5,7 +5,7 @@ import ExtractionVerification, { type ExtractionDocument } from './ExtractionVer
 afterEach(() => vi.unstubAllGlobals());
 const document: ExtractionDocument = {
   id: 'version-1', filename: 'leave.pdf', media_type: 'application/pdf', status: 'READY', extraction_status: 'HUMAN_REQUIRED', extraction_revision: 1,
-  sections: [{ source: 'page:1;item:#/texts/0;heading:Leave', text: 'Allow 20 days.' }, { source: 'page:2;item:#/tables/0;heading:Leave', text: 'Plan | Days' }],
+  sections: [{ id: 's1', source: 'page:1;item:#/texts/0;heading:Leave', text: 'Allow 20 days.' }, { id: 's2', source: 'page:2;item:#/tables/0;heading:Leave', text: 'Plan | Days' }],
   extractions: [{ revision: 1, status: 'HUMAN_REQUIRED', actor: 'worker', reason: '', payload: {
     attempts: [{ metadata: { parser: 'docling', parser_version: '2.143.0' }, quality: { outcome: 'UNCERTAIN', checks: [{ rule: 'ocr_score', status: 'NOT_EVALUATED', detail: 'Score: None', source: '2' }] } }],
     dpp: { checks: [{ rule: 'visual_reading_order', status: 'NOT_EVALUATED', detail: 'Compare with the original page (DPP §5.9).' }] },
