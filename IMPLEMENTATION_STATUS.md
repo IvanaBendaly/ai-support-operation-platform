@@ -228,3 +228,64 @@ are included in the passing backend suite.
   The synchronous service path remains for fixtures. Frontend integration is unchanged.
 - Full backend checks: 141 passed, 11 skipped; Ruff and dependency checks pass.
   Docker/PostgreSQL are unavailable here; no container/primary-database execution claimed.
+
+
+## C/D private-storage and document-review extension (2026-10-29)
+
+- Implemented S3-compatible original storage (MinIO development services), opaque keys,
+  staged verified legacy export, durable orphan reservations and conservative cleanup.
+- Added required sensitivity/title, immutable classification, policy-first OpenAI/Ollama
+  routing, Qwen3-4B configuration, validated output/citations and durable review attempts.
+- Persisted assessments and document processing/decision events. Human approval is required
+  independently of model output; only approved PUBLIC material enters existing retrieval.
+- Added connected Stored documents frontend with real upload, inspection and human decisions.
+- Added Ollama native/Docker instructions, cloud storage and backup boundaries, evaluation
+  runner and 12 draft-labeled synthetic examples. No manual-label validation or model-quality
+  result is claimed. Expand to 50–100 representative reviewed examples before a baseline.
+- pgvector remains future work; no vector migration was introduced. Shared administrator
+  credentials are not per-document clearance or individual identity management.
+- Runtime verification evidence for this change is recorded after the test run; live
+  PostgreSQL/MinIO/Ollama/OpenAI checks require those configured services.
+
+### C/D verification evidence
+
+- Full backend + developer-command suite: **180 passed, 13 skipped** (PostgreSQL and
+  explicit live MinIO integration unavailable). Includes verified legacy export,
+  migration schema parity, installed-package checks, publication eligibility, routing,
+  fabricated citations, failed providers, review leases/rollback and real local HTTP
+  subprocess timeout/redirect checks.
+- Frontend: **16 passed**; TypeScript + Vite production build passed.
+- Ruff lint/format and `pip check` passed. Compose YAML parsed; Docker runtime itself
+  is unavailable, so parsing is not claimed as container startup verification.
+- Evaluation dry-run validated 12 draft examples without model calls. No live-model
+  quality, latency or cost claim; human labels and provider runs remain required.
+- CI now includes a private MinIO upload/read-back/anonymous-denial probe. CI has not
+  been executed remotely in this task. The filesystem adapter and S3 contract stubs
+  do not substitute for the live object-store or primary PostgreSQL checks.
+
+
+## BR-01 Architecture B: extraction verification (2026-10-29)
+
+Continued from an interrupted session. B1–B7 code (verification, fields, extraction_review,
+migration 0010, verification UI) existed but was untested and partly broken.
+
+- Fixed: `fields.py` imported `httpx` (not installed; the dependency is `httpx2`), so every
+  isolated worker extraction crashed into `extraction_failed`. Import is now lazy `httpx2`.
+- Fixed: an empty LiteParse result for an unreadable PDF was selected as READY content.
+  LiteParse now raises `empty_or_unreadable_text`; a FAILED fallback is never selected.
+- Fixed: every extraction decision purged the retrieval index; now only when published
+  content is withdrawn (matching publication decisions).
+- Added highlighting of passages named by failing/unevaluated checks (B6), Compose and
+  `.env.example` extraction settings, and docs/EXTRACTION_VERIFICATION.md (criteria map).
+- Updated pre-existing tests that predated the verification gate; downgrade test now
+  asserts both the provenance and original-storage guards.
+- Known behavior: with OCR off Docling reports NaN OCR scores, so all Docling PDFs are
+  UNCERTAIN → LiteParse → human. DPP visual rules require a human for PDF/DOCX anyway.
+
+### Verification evidence
+
+- Backend: **208 passed, 13 skipped** (30 new BR-01 tests). Ruff lint/format passed.
+- Frontend: **18 passed**; TypeScript + Vite production build passed (fixed a TS error in
+  `Connected.tsx`). Run with `npm run` here because `pnpm` was not on PATH.
+- Not verified: live LlamaExtract (mock transport only; no credentials), any confidence
+  floor (no evaluated examples), PostgreSQL/MinIO/Compose runtime.

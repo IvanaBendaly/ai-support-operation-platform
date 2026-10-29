@@ -11,13 +11,15 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from docx import Document as WordDocument
-from sqlalchemy import event, select
+from knowledge_fixtures import PublishedKnowledgeService as KnowledgeService
+from knowledge_fixtures import approve_fixture
+from sqlalchemy import delete, event, select
 
 from northstar.config import Settings
 from northstar.db import make_engine, session_factory
 from northstar.retrieval.extraction import IngestionError, extract
-from northstar.retrieval.models import Document, Section
-from northstar.retrieval.service import KnowledgeService, describe, retrieval_sections
+from northstar.retrieval.models import Document, ExtractionRecord, Section
+from northstar.retrieval.service import describe, retrieval_sections
 from northstar.retrieval.worker import claim, convert_isolated, finish, run_once
 
 
@@ -46,6 +48,7 @@ def test_real_docx_headings_tables_and_worker_persistence(business):
     with sessions() as session:
         assert not retrieval_sections(session)
     assert run_once(sessions)
+    approve_fixture(sessions, result["id"])
     with sessions() as session:
         document = session.get(Document, result["id"])
         assert document.status == "READY" and document.attempts == 1
@@ -60,7 +63,7 @@ def test_byte_duplicate_does_not_extract_or_enqueue_again(business):
     sessions, _ = business
     first = enqueue(sessions)
     with patch(
-        "northstar.retrieval.service.extract", side_effect=AssertionError("must not extract")
+        "northstar.retrieval.verification.extract", side_effect=AssertionError("must not extract")
     ):
         repeated = KnowledgeService(sessions).ingest("other", "renamed.txt", b"A readable policy")
     assert repeated["duplicate"] and repeated["document"]["id"] == first["id"]
@@ -72,6 +75,7 @@ def test_normalized_duplicate_is_not_published(business):
     sessions, _ = business
     first = enqueue(sessions, data=b"Identical text\r\n")
     assert run_once(sessions)
+    approve_fixture(sessions, first["id"])
     second = enqueue(sessions, policy="other", data=b"Identical text\n")
     assert run_once(sessions)
     with sessions() as session:
@@ -86,6 +90,7 @@ def test_pending_and_failed_replacement_preserve_current_policy(business):
     sessions, _ = business
     first = enqueue(sessions)
     run_once(sessions)
+    approve_fixture(sessions, first["id"])
     replacement = enqueue(sessions, filename="bad.docx", data=b"bad", replace=True)
     with sessions() as session:
         assert retrieval_sections(session)[0].document_id == first["id"]
@@ -187,14 +192,22 @@ def test_worker_cli_reads_persisted_queue_after_restart(tmp_path, monkeypatch):
             result = describe(session, session.get(Document, document["id"]), include_sections=True)
             assert result["status"] == "READY" and result["sections"]
             assert result["original_hash"] == hashlib.sha256(b"A readable policy").hexdigest()
-        # Batch migration preserves existing originals and section relationships.
-        command.downgrade(Config("alembic.ini"), "0006")
-        command.upgrade(Config("alembic.ini"), "head")
+        # Dropping extraction provenance or external storage loses data; refuse both.
+        with pytest.raises(RuntimeError, match="extraction provenance"):
+            command.downgrade(Config("alembic.ini"), "0006")
+        with sessions.begin() as session:
+            session.execute(delete(ExtractionRecord))
+        with pytest.raises(RuntimeError, match="coordinated pre-migration backup"):
+            command.downgrade(Config("alembic.ini"), "0006")
         with sessions() as session:
             restored = session.get(Document, document["id"])
-            assert restored.original == b"A readable policy" and restored.status == "READY"
-            assert restored.attempts == 0
-            assert retrieval_sections(session)[0].document_id == restored.id
+            from northstar.storage import store_for
+
+            assert (
+                store_for(sessions).get(restored.storage_key, restored.original_hash)
+                == b"A readable policy"
+            )
+            assert restored.status == "READY"
     finally:
         engine.dispose()
 

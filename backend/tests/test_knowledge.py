@@ -2,6 +2,8 @@ from datetime import UTC, datetime, timedelta
 from io import BytesIO
 
 import pytest
+from knowledge_fixtures import PublishedKnowledgeService as KnowledgeService
+from knowledge_fixtures import approve_fixture
 from pypdf import PdfWriter
 from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
 from sqlalchemy import event, select
@@ -11,7 +13,7 @@ from northstar.api import create_app
 from northstar.config import Settings
 from northstar.domain import DomainError
 from northstar.retrieval.models import Document, Section
-from northstar.retrieval.service import KnowledgeService, describe, retrieval_sections
+from northstar.retrieval.service import describe, retrieval_sections
 from northstar.retrieval.worker import run_once
 
 NOW = datetime(2026, 10, 20, tzinfo=UTC)
@@ -56,7 +58,10 @@ def test_formats(business, filename, data, source):
     assert source in result["sections"][0]["source"]
     with sessions() as session:
         assert len(retrieval_sections(session, NOW)) == 1
-        assert session.get(Document, result["id"]).original == data
+        from northstar.storage import store_for
+
+        document = session.get(Document, result["id"])
+        assert store_for(sessions).get(document.storage_key, document.original_hash) == data
 
 
 @pytest.mark.parametrize(
@@ -155,17 +160,19 @@ def test_api_upload_inspection_batch_and_deactivate(business):
         client.headers["Authorization"] = "Bearer " + TOKEN
         response = client.post(
             "/api/admin/documents",
-            data={"policy_id": "policy"},
+            data={"policy_id": "policy", "title": "Policy", "sensitivity": "PUBLIC"},
             files={"file": ("a.md", b"# Rules\nOriginal policy")},
         )
         assert response.status_code == 200, response.text
         doc = response.json()["document"]
         assert doc["status"] == "QUEUED"
         assert run_once(sessions)
+        approve_fixture(sessions, doc["id"])
         assert client.get("/api/admin/documents/" + doc["id"]).json()["sections"]
         assert len(client.get("/api/admin/documents").json()) == 1
         response = client.post(
             "/api/admin/documents/policies/policy/versions",
+            data={"title": "Policy", "sensitivity": "PUBLIC"},
             files={"file": ("b.txt", b"Updated policy")},
         )
         assert response.json()["document"]["version"] == 2
@@ -176,6 +183,10 @@ def test_api_upload_inspection_batch_and_deactivate(business):
                 ("files", ("bad.pdf", b"bad")),
                 ("policy_ids", (None, "batch")),
                 ("policy_ids", (None, "bad")),
+                ("titles", (None, "Batch")),
+                ("titles", (None, "Bad")),
+                ("sensitivities", (None, "PUBLIC")),
+                ("sensitivities", (None, "PUBLIC")),
             ],
         )
         assert response.status_code == 200, response.text
@@ -215,7 +226,7 @@ def test_bounds_warnings_and_disabled_admin(business):
     ) as client:
         response = client.post(
             "/api/admin/documents",
-            data={"policy_id": "big"},
+            data={"policy_id": "big", "title": "Big", "sensitivity": "PUBLIC"},
             files={"file": ("big.txt", b"a" * (MAX_BYTES + 1))},
         )
         assert response.status_code == 413

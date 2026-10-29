@@ -19,3 +19,6 @@ dist/
 build/
 *.egg-info/
 coverage/
+.test-objects/
+evaluation-results/
+.test-run*/

@@ -4,6 +4,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
+from knowledge_fixtures import PublishedKnowledgeService as KnowledgeService
 from pydantic import ValidationError
 from sqlalchemy import event, select
 from sqlalchemy.exc import OperationalError
@@ -15,7 +16,6 @@ from northstar.domain import DomainError
 from northstar.retrieval import representation
 from northstar.retrieval.models import Document, RetrievalIndex, Section
 from northstar.retrieval.search import RetrievalFailure, RetrievalService
-from northstar.retrieval.service import KnowledgeService
 
 NOW = datetime(2026, 10, 20, tzinfo=UTC)
 CORPUS = json.loads((Path(__file__).parent / "fixtures/retrieval_corpus.json").read_text())

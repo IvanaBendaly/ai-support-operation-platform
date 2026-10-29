@@ -1,3 +1,8 @@
+> C/D update: see [DOCUMENT_REVIEW.md](DOCUMENT_REVIEW.md) for the current private-object
+> storage, sensitivity routing, review worker, human publication gate and connected
+> Stored documents screen. Only APPROVED PUBLIC versions enter the existing LSA index;
+> pgvector remains deferred. Earlier descriptions below are historical where they differ.
+
 # Northstar Cloud architecture
 
 The intended product is a single FastAPI application, PostgreSQL database, and

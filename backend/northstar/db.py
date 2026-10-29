@@ -28,6 +28,7 @@ def make_engine(settings: Settings):
         options["connect_args"] = {"connect_timeout": 3, "options": "-c statement_timeout=5000"}
         options["pool_timeout"] = 3
     engine = create_engine(url, **options)
+    engine.northstar_settings = settings
     if url.startswith("sqlite"):
 
         @event.listens_for(engine, "connect")
@@ -38,4 +39,11 @@ def make_engine(settings: Settings):
 
 
 def session_factory(engine):
-    return sessionmaker(engine, expire_on_commit=False)
+    from northstar.storage import ObjectStore
+
+    settings = engine.northstar_settings
+    return sessionmaker(
+        engine,
+        expire_on_commit=False,
+        info={"settings": settings, "object_store": ObjectStore(settings.storage)},
+    )

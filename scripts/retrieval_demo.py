@@ -5,7 +5,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from northstar.config import Settings
+from northstar.ai.worker import run_review_once
+from northstar.config import Settings, StorageSettings
 from northstar.db import Base, make_engine, session_factory
 from northstar.retrieval.search import RetrievalService
 from northstar.retrieval.service import KnowledgeService
@@ -21,6 +22,9 @@ def main():
             Settings(
                 _env_file=None,
                 environment="test",
+                storage=StorageSettings(
+                    backend="filesystem", directory=str(Path(directory) / "objects")
+                ),
                 database_url=f"sqlite+pysqlite:///{Path(directory) / 'demo.db'}",
             )
         )
@@ -29,7 +33,16 @@ def main():
             sessions = session_factory(engine)
             knowledge = KnowledgeService(sessions)
             for policy in json.loads(corpus_path.read_text()):
-                knowledge.ingest(policy["id"], policy["id"] + ".md", policy["text"].encode(), at)
+                document = knowledge.ingest(
+                    policy["id"],
+                    policy["id"] + ".md",
+                    policy["text"].encode(),
+                    at,
+                    sensitivity="PUBLIC",
+                    title=policy["id"],
+                )["document"]
+                run_review_once(sessions)
+                knowledge.decide(document["id"], "APPROVED", "Reviewed synthetic demo fixture")
             retrieval = RetrievalService(sessions)
             questions = ["I want my money back", "I am locked out", "astronomy telescope galaxies"]
             output = {
@@ -45,7 +58,11 @@ def main():
                 b"Refunds require finance review before approval. Submit the invoice for review.",
                 at,
                 replace=True,
+                sensitivity="PUBLIC",
+                title="Updated refunds",
             )["document"]
+            run_review_once(sessions)
+            knowledge.decide(replacement["id"], "APPROVED", "Reviewed synthetic replacement")
             updated = retrieval.search("refund", at=at)
             output["replacement"] = {
                 "previous_document_id": previous.evidence[0].document_id,

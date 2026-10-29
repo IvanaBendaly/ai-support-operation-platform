@@ -8,7 +8,6 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Integer,
-    LargeBinary,
     String,
     Text,
     UniqueConstraint,
@@ -37,6 +36,16 @@ class Document(Base, RecordTimestamps):
             name="processing_status",
         ),
         CheckConstraint("valid_until IS NULL OR valid_until > valid_from", name="valid_period"),
+        CheckConstraint(
+            "sensitivity IN ('UNCLASSIFIED','PUBLIC','INTERNAL',"
+            "'CONFIDENTIAL','HIGHLY_RESTRICTED')",
+            name="sensitivity",
+        ),
+        CheckConstraint(
+            "publication_status IN ('PENDING_REVIEW','APPROVED','REJECTED',"
+            "'CHANGES_REQUESTED','DELETED')",
+            name="publication_status",
+        ),
     )
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     policy_id: Mapped[str] = mapped_column(ForeignKey("knowledge_policies.id"), index=True)
@@ -45,7 +54,17 @@ class Document(Base, RecordTimestamps):
     media_type: Mapped[str] = mapped_column(String(100))
     original_hash: Mapped[str] = mapped_column(String(64), index=True)
     content_hash: Mapped[str | None] = mapped_column(String(64))
-    original: Mapped[bytes] = mapped_column(LargeBinary)
+    storage_key: Mapped[str] = mapped_column(String(100), unique=True)
+    title: Mapped[str] = mapped_column(String(160))
+    sensitivity: Mapped[str] = mapped_column(String(30), default="UNCLASSIFIED")
+    publication_status: Mapped[str] = mapped_column(String(30), default="PENDING_REVIEW")
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    review_status: Mapped[str] = mapped_column(String(20), default="PENDING")
+    extraction_status: Mapped[str] = mapped_column(String(20), default="PENDING")
+    extraction_revision: Mapped[int] = mapped_column(Integer, default=0)
+    review_lease_token: Mapped[str | None] = mapped_column(String(36))
+    review_lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    review_attempts: Mapped[int] = mapped_column(Integer, default=0)
     status: Mapped[str] = mapped_column(String(20))
     lease_token: Mapped[str | None] = mapped_column(String(36))
     lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -82,4 +101,52 @@ class RetrievalIndex(Base, RecordTimestamps):
     generation: Mapped[str] = mapped_column(String(36))
     source_hash: Mapped[str] = mapped_column(String(64))
     payload_hash: Mapped[str] = mapped_column(String(64))
+    payload: Mapped[dict] = mapped_column(JSON)
+
+
+class ReviewAssessment(Base, RecordTimestamps):
+    __tablename__ = "knowledge_review_assessments"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    document_id: Mapped[str] = mapped_column(ForeignKey("knowledge_documents.id"), index=True)
+    provider: Mapped[str] = mapped_column(String(20))
+    model_id: Mapped[str | None] = mapped_column(String(100))
+    assessment_status: Mapped[str] = mapped_column(String(20))
+    needs_review: Mapped[bool] = mapped_column(default=True)
+    risk_level: Mapped[str] = mapped_column(String(10))
+    review_reasons: Mapped[list] = mapped_column(JSON)
+    explanation: Mapped[str] = mapped_column(Text)
+    supporting_references: Mapped[list] = mapped_column(JSON)
+    metrics: Mapped[dict] = mapped_column(JSON)
+    prompt_version: Mapped[str] = mapped_column(String(30))
+
+
+class DocumentEvent(Base, RecordTimestamps):
+    """Processing history and human decisions; never contains source text or credentials."""
+
+    __tablename__ = "knowledge_document_events"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    document_id: Mapped[str] = mapped_column(ForeignKey("knowledge_documents.id"), index=True)
+    action: Mapped[str] = mapped_column(String(40))
+    actor: Mapped[str] = mapped_column(String(100))
+    reason: Mapped[str] = mapped_column(String(500))
+
+
+class StoredObject(Base, RecordTimestamps):
+    """Reservation before PUT: durable cleanup even after a crash or failed DB commit."""
+
+    __tablename__ = "knowledge_stored_objects"
+    key: Mapped[str] = mapped_column(String(100), primary_key=True)
+
+
+class ExtractionRecord(Base, RecordTimestamps):
+    """Append-only parser attempts, selected output and human corrections, by revision."""
+
+    __tablename__ = "knowledge_extraction_records"
+    __table_args__ = (UniqueConstraint("document_id", "revision"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    document_id: Mapped[str] = mapped_column(ForeignKey("knowledge_documents.id"), index=True)
+    revision: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(20))
+    actor: Mapped[str] = mapped_column(String(100))
+    reason: Mapped[str] = mapped_column(String(500))
     payload: Mapped[dict] = mapped_column(JSON)

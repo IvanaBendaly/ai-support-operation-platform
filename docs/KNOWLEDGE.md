@@ -1,3 +1,21 @@
+# Knowledge ingestion, storage and review
+
+Current C/D contract: [DOCUMENT_REVIEW.md](DOCUMENT_REVIEW.md).
+
+- Upload metadata now requires `title` and `sensitivity` in addition to `policy_id`.
+- MinIO/S3 stores originals; PostgreSQL stores keys, sections, assessments and events.
+- Extraction READY is independent of publication PENDING_REVIEW/APPROVED/REJECTED.
+- Only human-approved PUBLIC versions are eligible for the current retrieval index.
+- The review worker routes OpenAI/Ollama before any call, considering both revisions.
+- The Stored documents frontend screen connects to the API; other screens are previews.
+- Existing databases require the staged 0008 export / 0009 contract migration.
+
+The following material records the earlier A/B implementation and its verification.
+Where it describes binary storage, upload metadata, schema head or READY-based automatic
+eligibility, it is superseded by the current C/D contract above.
+
+---
+
 # C03 — Knowledge ingestion and lifecycle
 
 ## Runtime and administration

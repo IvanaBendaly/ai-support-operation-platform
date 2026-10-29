@@ -49,6 +49,15 @@ def create_app(settings: Settings | None = None, engine=None):
         expose_headers=["X-Request-ID"],
     )
     app.middleware("http")(correlate)
+
+    @app.middleware("http")
+    async def private_admin_responses(request, call_next):
+        response = await call_next(request)
+        if request.url.path.startswith("/api/admin/"):
+            response.headers["Cache-Control"] = "no-store"
+            response.headers["Pragma"] = "no-cache"
+        return response
+
     app.add_exception_handler(RequestValidationError, invalid_request)
     app.add_exception_handler(HTTPException, http_error)
     app.add_exception_handler(DomainError, domain_error)

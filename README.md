@@ -1,8 +1,14 @@
 # Northstar — Document Upload and Preparation
 
-This README covers only **A. Upload and validation** and **B. Extraction and
-preparation**: what exists, how administrator access works, and how to run and
-inspect these processes. It does not describe the rest of the support platform.
+The backend supports upload, extraction, private S3-compatible original storage and
+policy-routed AI document review with mandatory human publication approval.
+See [Storage and document review](docs/DOCUMENT_REVIEW.md) for **Ollama/Qwen3-4B,
+Docker/MinIO setup, OpenAI routing, sensitivity, migration and evaluation instructions**.
+For a database containing existing documents, follow that guide's staged migration
+before starting the updated application.
+See [Extraction verification](docs/EXTRACTION_VERIFICATION.md) for the BR-01
+quality checks, LiteParse fallback, DPP subset, optional LlamaExtract fields and the
+human verification step that must pass before review or publication.
 
 ## What is implemented
 
@@ -14,17 +20,17 @@ inspect these processes. It does not describe the rest of the support platform.
 | Formats | UTF-8 TXT/Markdown, DOCX and extractable, unencrypted PDF |
 | Extraction | Direct UTF-8 decoding for TXT/MD; **Docling** for PDF/DOCX |
 | Preparation | Conservative normalization, source references and sections of up to 2,000 characters |
-| Persistence | Original bytes, metadata, hashes, revision, status, warnings and sections stored transactionally |
+| Persistence | Originals in private object storage; keys, metadata, sections and review history in PostgreSQL |
 | Duplicates | Byte-hash lookup before extraction, followed by normalized-text deduplication |
 | Failures | Failed extraction is recorded as `FAILED`, with an error and no sections |
 
 Uploads are persisted as `QUEUED`. A separate database-backed worker claims them
 as `PROCESSING` and commits `READY`, `FAILED`, or `DUPLICATE`. No embeddings are
-created in this step. Administrator accounts/roles and frontend integration remain
-unimplemented. Docling uses its native PDF pipeline (no OCR, layout/table inference
+created in this step. Administrator accounts/roles remain unimplemented. The new
+Stored documents frontend screen connects uploads and review decisions to the API. Docling uses its native PDF pipeline (no OCR, layout/table inference
 or model downloads) and its DOCX pipeline (headings and tables where available).
 
-The frontend is a separate **session-only preview**. It uses the proposed
+The original Documents screen remains a **session-only preview**; use **Stored documents** for the connected workflow. It uses the proposed
 `document_id`/`version_id` naming, checks both fingerprints, and previews TXT/MD.
 It does not send uploads to the backend. PDF/DOCX selections remain “Awaiting
 worker,” and refreshing clears preview records.
@@ -51,7 +57,7 @@ Install/start Docker Desktop with Linux containers and Compose available. The
 container route does not require local Python or Node. Run in PowerShell:
 
 ```powershell
-cd C:\Users\STEAM-LB\Documents\GitHub\ai-support-ops
+# Run from the repository root
 if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 notepad .env
 ```
@@ -79,7 +85,7 @@ docker compose up --build --wait backend worker
 Invoke-RestMethod "$baseUrl/api/ready"
 ```
 
-Compose starts PostgreSQL, runs Alembic migrations (including 0007), then starts
+Compose starts PostgreSQL, runs Alembic migrations (through 0009 on a fresh database), then starts
 the backend and extraction worker. A
 successful readiness response includes `status: ready` and `database: connected`.
 No business seed data or model API key is needed for uploads and extraction.
@@ -118,7 +124,7 @@ Set-Content -Encoding utf8 $expenseFile "Expense claims require receipts and man
 
 ```powershell
 $upload = curl.exe -sS -H "Authorization: Bearer $env:NORTHSTAR_ADMIN_TOKEN" `
-  -F "policy_id=employee-leave" -F "file=@$leaveFile" `
+  -F "policy_id=employee-leave" -F "title=Employee leave" -F "sensitivity=PUBLIC" -F "file=@$leaveFile" `
   "$baseUrl/api/admin/documents" | ConvertFrom-Json
 $upload | ConvertTo-Json -Depth 8
 $revisionId = $upload.document.id
@@ -137,11 +143,11 @@ The backend naming currently differs from the proposed frontend naming:
 | Identity of one revision | Document `id`; route parameter `document_id` | `version_id` |
 | Revision number | `version` | `revision` |
 
-The API accepts `policy_id` and optional `valid_from`/`valid_until` timestamps,
-not a separate title or source metadata field. Policy IDs use lowercase letters,
+The API requires `policy_id`, `title` and `sensitivity`, plus optional
+`valid_from`/`valid_until` timestamps. Policy IDs use lowercase letters,
 numbers, underscores and hyphens, start with a letter/number, and have at most
 100 characters. Validity timestamps must include a timezone; expiry must be later
-than the effective time. Without dates, successful content becomes effective now.
+than the effective time. Without dates, content has an immediate effective date but still requires human approval.
 
 ### Upload an explicit replacement
 
@@ -150,7 +156,7 @@ Change the content, then explicitly target the existing policy:
 ```powershell
 Set-Content -Encoding utf8 $leaveFile "# Employee leave policy`nEmployees may request 25 days of annual leave. Managers review requests before leave begins."
 $replacement = curl.exe -sS -H "Authorization: Bearer $env:NORTHSTAR_ADMIN_TOKEN" `
-  -F "file=@$leaveFile" `
+  -F "title=Employee leave" -F "sensitivity=PUBLIC" -F "file=@$leaveFile" `
   "$baseUrl/api/admin/documents/policies/employee-leave/versions" | ConvertFrom-Json
 $replacement | ConvertTo-Json -Depth 8
 ```
@@ -166,12 +172,12 @@ previous successful version effective. A normalized-text duplicate becomes
 
 ### Upload a batch
 
-Repeat `files` and `policy_ids` in matching order:
+Repeat `files`, `policy_ids`, `titles` and `sensitivities` in matching order:
 
 ```powershell
 curl.exe -sS -H "Authorization: Bearer $env:NORTHSTAR_ADMIN_TOKEN" `
-  -F "policy_ids=access-policy" -F "files=@$accessFile" `
-  -F "policy_ids=expense-policy" -F "files=@$expenseFile" `
+  -F "policy_ids=access-policy" -F "titles=Access policy" -F "sensitivities=PUBLIC" -F "files=@$accessFile" `
+  -F "policy_ids=expense-policy" -F "titles=Expense policy" -F "sensitivities=PUBLIC" -F "files=@$expenseFile" `
   "$baseUrl/api/admin/documents/batch"
 ```
 
@@ -323,7 +329,7 @@ cd backend
 | File recorded as FAILED | Inspect `error` and `warnings`; scanned PDFs and OCR are unsupported |
 | Record stays QUEUED | Check that the worker is running and points to the same database |
 | Record stays PROCESSING after a crash | A running worker reclaims it after its three-minute lease expires |
-| UI does not show an API-uploaded document | UI is a separate session preview |
+| UI does not show an API-uploaded document | Use Stored documents and refresh; Documents is a separate session preview |
 | Backend does not start | Check database/migration logs with the commands below |
 
 ```powershell

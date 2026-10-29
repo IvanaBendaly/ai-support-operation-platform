@@ -17,6 +17,28 @@ services:
     environment: &backend_environment
       NORTHSTAR_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-northstar}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-northstar}
       NORTHSTAR_ALLOWED_ORIGINS: '["http://localhost:8080"]'
+      NORTHSTAR_STORAGE__ENDPOINT: http://minio:9000
+      NORTHSTAR_STORAGE__BUCKET: northstar-originals
+      NORTHSTAR_STORAGE__ACCESS_KEY: ${MINIO_ROOT_USER:-northstar-local}
+      NORTHSTAR_STORAGE__SECRET_KEY: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in .env}
+      NORTHSTAR_STORAGE__RESTRICTED_ENVIRONMENT_APPROVED: ${NORTHSTAR_STORAGE__RESTRICTED_ENVIRONMENT_APPROVED:-false}
+      NORTHSTAR_REVIEW__PROVIDER: ${NORTHSTAR_REVIEW__PROVIDER:-disabled}
+      NORTHSTAR_REVIEW__OPENAI_MODEL: ${NORTHSTAR_REVIEW__OPENAI_MODEL:-gpt-4o-mini}
+      NORTHSTAR_REVIEW__OPENAI_API_KEY: ${NORTHSTAR_REVIEW__OPENAI_API_KEY:-}
+      NORTHSTAR_REVIEW__OLLAMA_URL: http://ollama:11434
+      NORTHSTAR_REVIEW__OLLAMA_MODEL: ${NORTHSTAR_REVIEW__OLLAMA_MODEL:-qwen3:4b}
+      NORTHSTAR_REVIEW__LOCAL_ENVIRONMENT_APPROVED: ${NORTHSTAR_REVIEW__LOCAL_ENVIRONMENT_APPROVED:-false}
+      NORTHSTAR_REVIEW__RESTRICTED_LOCAL_APPROVED: ${NORTHSTAR_REVIEW__RESTRICTED_LOCAL_APPROVED:-false}
+      NORTHSTAR_REVIEW__EXTERNAL_PUBLIC_ALLOWED: ${NORTHSTAR_REVIEW__EXTERNAL_PUBLIC_ALLOWED:-false}
+      NORTHSTAR_REVIEW__EXTERNAL_INTERNAL_ALLOWED: ${NORTHSTAR_REVIEW__EXTERNAL_INTERNAL_ALLOWED:-false}
+      NORTHSTAR_REVIEW__EXTERNAL_CONFIDENTIAL_EXCEPTION: ${NORTHSTAR_REVIEW__EXTERNAL_CONFIDENTIAL_EXCEPTION:-false}
+      NORTHSTAR_REVIEW__TIMEOUT_SECONDS: ${NORTHSTAR_REVIEW__TIMEOUT_SECONDS:-60}
+      # Floors, field schema and LlamaExtract credentials: add in an override file once evaluated.
+      NORTHSTAR_EXTRACTION__LITEPARSE_ENABLED: ${NORTHSTAR_EXTRACTION__LITEPARSE_ENABLED:-true}
+      NORTHSTAR_EXTRACTION__MINIMUM_CHARACTERS: ${NORTHSTAR_EXTRACTION__MINIMUM_CHARACTERS:-80}
+      NORTHSTAR_EXTRACTION__EXTERNAL_PUBLIC_ALLOWED: ${NORTHSTAR_EXTRACTION__EXTERNAL_PUBLIC_ALLOWED:-false}
+      NORTHSTAR_EXTRACTION__EXTERNAL_INTERNAL_ALLOWED: ${NORTHSTAR_EXTRACTION__EXTERNAL_INTERNAL_ALLOWED:-false}
+      NORTHSTAR_EXTRACTION__EXTERNAL_CONFIDENTIAL_EXCEPTION: ${NORTHSTAR_EXTRACTION__EXTERNAL_CONFIDENTIAL_EXCEPTION:-false}
     depends_on:
       db: { condition: service_healthy }
     command: ["alembic", "upgrade", "head"]
@@ -31,6 +53,7 @@ services:
       NORTHSTAR_RETRIEVAL__SECTION_CHARS: ${NORTHSTAR_RETRIEVAL__SECTION_CHARS:-2000}
     depends_on:
       migrate: { condition: service_completed_successfully }
+      minio-init: { condition: service_completed_successfully }
     ports: ["127.0.0.1:8000:8000"]
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/ready', timeout=4)"]
@@ -52,8 +75,44 @@ services:
     environment: *backend_environment
     depends_on:
       migrate: { condition: service_completed_successfully }
+      minio-init: { condition: service_completed_successfully }
     command: ["python", "-m", "northstar.retrieval.worker"]
     restart: unless-stopped
     mem_limit: 1g
+  minio:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-northstar-local}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in .env}
+    ports: ["127.0.0.1:9000:9000", "127.0.0.1:9001:9001"]
+    volumes: ["minio_data:/data"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  minio-init:
+    image: minio/mc:RELEASE.2025-08-13T08-35-41Z
+    depends_on:
+      minio: { condition: service_healthy }
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-northstar-local}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in .env}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - 'mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD" && mc mb --ignore-existing local/northstar-originals && mc anonymous set none local/northstar-originals'
+    restart: "no"
+  ollama:
+    image: ollama/ollama:0.18.2
+    profiles: ["local-ai"]
+    environment:
+      OLLAMA_NO_CLOUD: "1"
+      OLLAMA_NUM_PARALLEL: "1"
+    ports: ["127.0.0.1:11434:11434"]
+    volumes: ["ollama_models:/root/.ollama"]
+    mem_limit: 8g
 volumes:
   postgres_data:
+  minio_data:
+  ollama_models:

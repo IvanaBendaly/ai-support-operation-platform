@@ -36,7 +36,7 @@ def validate_file(filename: str, data: bytes) -> str:
     return MEDIA[suffix]
 
 
-def structured_units(filename: str, data: bytes):
+def structured_units(filename: str, data: bytes, diagnostics=None):
     from docling.backend.docling_parse_backend import ThreadedDoclingParseDocumentBackend
     from docling.backend.msword_backend import MsWordDocumentBackend
     from docling.datamodel.backend_options import ThreadedDoclingParseBackendOptions
@@ -87,6 +87,27 @@ def structured_units(filename: str, data: bytes):
             else SimplePipeline(ConvertPipelineOptions())
         )
         result = pipeline.execute(incoming, raises_on_error=False)
+        if diagnostics is not None:
+            import math
+            from importlib.metadata import version
+
+            def scores(report):
+                return {
+                    name: float(value) if math.isfinite(value) else None
+                    for name in ("parse_score", "layout_score", "table_score", "ocr_score")
+                    for value in [getattr(report, name)]
+                }
+
+            diagnostics.update(
+                parser="docling",
+                parser_version=version("docling-slim"),
+                confidence=scores(result.confidence),
+                page_confidence={str(p): scores(s) for p, s in result.confidence.pages.items()},
+                page_count=incoming.page_count if is_pdf else None,
+                parser_status=result.status.value,
+                warnings=["docling_processing_warning" for _ in result.errors],
+                elements=[],
+            )
         if result.status != ConversionStatus.SUCCESS:
             raise IngestionError("corrupt_pdf" if suffix == ".pdf" else "corrupt_docx")
         units, heading, total = [], "", 0
@@ -107,6 +128,19 @@ def structured_units(filename: str, data: bytes):
             page_ref = ";".join(f"page:{page}" for page in pages)
             source = f"{page_ref};item:{item.self_ref};heading:{heading}"[:470]
             units.append((source, value))
+            if diagnostics is not None:
+                element = {
+                    "kind": item.label.value,
+                    "text": value,
+                    "source": source,
+                    "pages": pages,
+                    "heading": heading,
+                    "order": len(units),
+                    "references": [p.model_dump(mode="json") for p in item.prov],
+                }
+                if isinstance(item, TableItem):
+                    element["table"] = item.data.model_dump(mode="json")
+                diagnostics["elements"].append(element)
         return units
     except IngestionError:
         raise
@@ -114,12 +148,18 @@ def structured_units(filename: str, data: bytes):
         raise IngestionError("corrupt_pdf" if suffix == ".pdf" else "corrupt_docx") from None
 
 
-def extract(filename: str, data: bytes) -> tuple[str, str, list[tuple[str, str]], list[str]]:
+def extract(
+    filename: str, data: bytes, diagnostics=None
+) -> tuple[str, str, list[tuple[str, str]], list[str]]:
     media = validate_file(filename, data)
     suffix = PurePosixPath(filename.lower()).suffix
     warnings = []
     if suffix in {".pdf", ".docx"}:
-        units = structured_units(filename, data)
+        units = (
+            structured_units(filename, data, diagnostics)
+            if diagnostics is not None
+            else structured_units(filename, data)
+        )
     else:
         try:
             value = normalize(data.decode("utf-8-sig"))
@@ -135,6 +175,26 @@ def extract(filename: str, data: bytes) -> tuple[str, str, list[tuple[str, str]]
             lines.append(line)
         if lines:
             units.append((f"line:{start};heading:{heading}"[:480], "\n".join(lines)))
+        if diagnostics is not None:
+            diagnostics.update(
+                parser="python",
+                parser_version="utf8-v1",
+                confidence={},
+                page_confidence={},
+                page_count=None,
+                warnings=[],
+                elements=[
+                    {
+                        "kind": "markdown" if suffix == ".md" else "text",
+                        "text": text,
+                        "source": source,
+                        "pages": [],
+                        "order": i,
+                        "references": [],
+                    }
+                    for i, (source, text) in enumerate(units, 1)
+                ],
+            )
     text = "\n\n".join(t for _, t in units)
     if not text or not any(c.isalnum() for c in text):
         raise IngestionError("empty_or_unreadable_text")

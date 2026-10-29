@@ -15,6 +15,21 @@ from pydantic_settings.exceptions import SettingsError
 from sqlalchemy.engine import make_url
 
 
+class ExtractionSettings(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    liteparse_enabled: bool = True
+    minimum_characters: int = Field(default=80, ge=1, le=10000)
+    # No universal confidence cutoff: configure only after evaluation on permitted examples.
+    confidence_floor: float | None = Field(default=None, ge=0, le=1, allow_inf_nan=False)
+    field_schema: dict | None = None
+    field_confidence_floor: float | None = Field(default=None, ge=0, le=1, allow_inf_nan=False)
+    llamaextract_api_key: SecretStr | None = None
+    llamaextract_project_id: str | None = None
+    external_public_allowed: bool = False
+    external_internal_allowed: bool = False
+    external_confidential_exception: bool = False
+
+
 class RetrievalSettings(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     result_limit: int = Field(default=5, ge=1, le=20)
@@ -35,6 +50,72 @@ class RetrievalSettings(BaseModel):
         return self
 
 
+class StorageSettings(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    backend: Literal["s3", "filesystem"] = "s3"
+    endpoint: str | None = None
+    bucket: str = "northstar-originals"
+    region: str = "us-east-1"
+    access_key: SecretStr | None = None
+    secret_key: SecretStr | None = None
+    directory: str = ".test-objects"
+    encryption: Literal["AES256", "aws:kms"] | None = None
+    kms_key_id: str | None = None
+    # Operator attestation; application code cannot verify infrastructure accreditation.
+    restricted_environment_approved: bool = False
+
+
+class ReviewSettings(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    provider: Literal["disabled", "auto", "openai", "ollama"] = "disabled"
+    openai_model: str = "gpt-4o-mini"
+    openai_api_key: SecretStr | None = None
+    ollama_url: str = "http://127.0.0.1:11434"
+    ollama_model: str = "qwen3:4b"
+    local_environment_approved: bool = False
+    restricted_local_approved: bool = False
+    external_public_allowed: bool = False
+    external_internal_allowed: bool = False
+    external_confidential_exception: bool = False
+    timeout_seconds: float = Field(default=60, gt=0, le=120)
+    max_input_chars: int = Field(default=12000, ge=2000, le=24000)
+    max_output_tokens: int = Field(default=1500, ge=256, le=4096)
+
+    @field_validator("ollama_url")
+    @classmethod
+    def private_endpoint(cls, value):
+        import ipaddress
+
+        parsed = urlsplit(value)
+        host = parsed.hostname or ""
+        private = host in {"localhost", "ollama", "host.docker.internal"}
+        try:
+            address = ipaddress.ip_address(host)
+            private = address.is_private and not address.is_unspecified
+        except ValueError:
+            pass
+        if (
+            not private
+            or parsed.scheme not in {"http", "https"}
+            or parsed.username
+            or parsed.password
+            or parsed.query
+            or parsed.fragment
+            or parsed.path not in {"", "/"}
+        ):
+            raise ValueError(
+                "ollama_url must name a private IP, localhost, or the Ollama Docker host"
+            )
+        return value.rstrip("/")
+
+    @field_validator("ollama_model")
+    @classmethod
+    def local_model(cls, value):
+        if "cloud" in value.lower() or "/" in value or not value.strip():
+            raise ValueError("Use a locally installed model tag, never a cloud model")
+        return value
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="NORTHSTAR_",
@@ -44,6 +125,9 @@ class Settings(BaseSettings):
         hide_input_in_errors=True,
     )
     retrieval: RetrievalSettings = Field(default_factory=RetrievalSettings)
+    storage: StorageSettings = Field(default_factory=StorageSettings)
+    review: ReviewSettings = Field(default_factory=ReviewSettings)
+    extraction: ExtractionSettings = Field(default_factory=ExtractionSettings)
     environment: Literal["development", "test", "production"] = "development"
     database_url: SecretStr
     allowed_origins: list[str] = Field(default_factory=lambda: ["http://localhost:5173"])
@@ -101,6 +185,14 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def runtime_database(self):
+        if self.storage.backend == "filesystem" and self.environment != "test":
+            raise ValueError("Filesystem object storage is only supported in tests")
+        if (
+            self.environment == "production"
+            and self.storage.endpoint
+            and not self.storage.endpoint.startswith("https://")
+        ):
+            raise ValueError("Production object storage must use HTTPS")
         if self.environment != "test" and self.database_url.get_secret_value().startswith("sqlite"):
             raise ValueError("SQLite is only supported in the test environment")
         if self.environment == "production" and any(

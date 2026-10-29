@@ -12,15 +12,16 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from uuid import uuid4
 
-from sqlalchemy import or_, select, update
+from sqlalchemy import delete, or_, select, update
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from northstar.config import load_settings
 from northstar.db import make_engine, session_factory
 from northstar.logging import configure_logging
-from northstar.retrieval.extraction import IngestionError, extract
+from northstar.retrieval.extraction_review import save_record
 from northstar.retrieval.models import Document, Section
-from northstar.retrieval.service import utc
+from northstar.retrieval.service import record_event, utc
+from northstar.storage import StorageError, settings_for, store_for
 
 MAX_ATTEMPTS = 3
 EXTRACTION_TIMEOUT = 120
@@ -35,6 +36,7 @@ def claim(sessions, now=None):
             Document.status == "QUEUED",
             (Document.status == "PROCESSING") & (Document.lease_expires_at <= now),
         )
+        available = available & (Document.publication_status != "DELETED")
         document = session.scalar(
             select(Document)
             .where(available)
@@ -61,15 +63,20 @@ def claim(sessions, now=None):
         )
         if not changed.rowcount:
             return None
+        record_event(
+            session, document.id, "extraction_exhausted" if exhausted else "extraction_claimed"
+        )
         return {
             "id": document.id,
             "token": None if exhausted else token,
             "filename": document.filename,
-            "data": document.original,
+            "storage_key": document.storage_key,
+            "original_hash": document.original_hash,
+            "sensitivity": document.sensitivity,
         }
 
 
-def finish(sessions, job, result=None, error=None):
+def finish(sessions, job, result=None, error=None, verification=None):
     """A stale worker cannot publish. Sections and READY commit together."""
     with sessions.begin() as session:
         document = session.get(Document, job["id"], with_for_update=True)
@@ -77,26 +84,47 @@ def finish(sessions, job, result=None, error=None):
             document is None
             or document.status != "PROCESSING"
             or document.lease_token != job["token"]
+            or document.publication_status == "DELETED"
             or utc(document.lease_expires_at) <= datetime.now(UTC)
         ):
             return False
         document.lease_token = document.lease_expires_at = None
+        save_record(
+            session,
+            document,
+            verification
+            or {
+                "status": "HUMAN_REQUIRED",
+                "result": result,
+                "error": error,
+                "attempts": [],
+                "reason": "diagnostics_unavailable",
+            },
+        )
         if error:
             document.status, document.error = "FAILED", error
+            record_event(session, document.id, "extraction_failed", reason=error)
             return True
         media, content, sections, warnings = result
         digest = hashlib.sha256(content.encode()).hexdigest()
-        duplicate = session.scalar(select(Document).where(Document.content_hash == digest))
+        duplicate = session.scalar(
+            select(Document).where(Document.content_hash == digest, Document.id != document.id)
+        )
         if duplicate:
             document.status, document.duplicate_of = "DUPLICATE", duplicate.id
             document.error = None
+            record_event(session, document.id, "duplicate_detected")
             return True
         document.media_type, document.content_hash = media, digest
         document.status, document.error, document.warnings = "READY", None, warnings
+        record_event(session, document.id, "extraction_completed")
+        session.execute(delete(Section).where(Section.document_id == document.id))
         for ordinal, (source, text) in enumerate(sections, 1):
             session.add(
                 Section(
-                    id=hashlib.sha256(f"{document.id}:{ordinal}".encode()).hexdigest(),
+                    id=hashlib.sha256(
+                        f"{document.id}:{document.extraction_revision}:{ordinal}".encode()
+                    ).hexdigest(),
                     document_id=document.id,
                     ordinal=ordinal,
                     source=source,
@@ -120,7 +148,9 @@ def convert_isolated(job, timeout=EXTRACTION_TIMEOUT):
                     str(incoming),
                     str(outgoing),
                     f"--filename={job['filename']}",
+                    f"--sensitivity={job.get('sensitivity', 'UNCLASSIFIED')}",
                 ],
+                input=json.dumps(job.get("extraction_settings", {})).encode(),
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 timeout=timeout,
@@ -141,13 +171,25 @@ def run_once(sessions):
         return False
     if job["token"] is None:
         return True
+    try:
+        job["data"] = store_for(sessions).get(job["storage_key"], job["original_hash"])
+    except StorageError:
+        # Keep the lease recoverable; never turn missing bytes into empty successful text.
+        logger.error("extraction_object_storage_unavailable")
+        return True
+    config = settings_for(sessions).extraction
+    job["extraction_settings"] = config.model_dump(mode="json")
+    if config.llamaextract_api_key:
+        job["extraction_settings"]["llamaextract_api_key"] = (
+            config.llamaextract_api_key.get_secret_value()
+        )
     output = convert_isolated(job)
     try:
-        finish(sessions, job, output.get("result"), output.get("error"))
+        finish(sessions, job, output.get("result"), output.get("error"), output.get("verification"))
     except IntegrityError:
         # A concurrent conversion may have committed the same normalized text.
         # Retry only the transaction; the unique content hash still arbitrates.
-        finish(sessions, job, output.get("result"), output.get("error"))
+        finish(sessions, job, output.get("result"), output.get("error"), output.get("verification"))
     return True
 
 
@@ -156,13 +198,27 @@ def main():
     parser.add_argument("--once", action="store_true", help="Process at most one available job")
     parser.add_argument("--extract", nargs=2, metavar=("INPUT", "OUTPUT"), help=argparse.SUPPRESS)
     parser.add_argument("--filename", help=argparse.SUPPRESS)
+    parser.add_argument("--sensitivity", default="UNCLASSIFIED", help=argparse.SUPPRESS)
     args = parser.parse_args()
     if args.extract:
         incoming, outgoing = map(Path, args.extract)
         try:
-            output = {"result": extract(args.filename, incoming.read_bytes())}
-        except IngestionError as exc:
-            output = {"error": str(exc)}
+            from northstar.config import ExtractionSettings
+            from northstar.retrieval.fields import extract_fields
+            from northstar.retrieval.verification import pipeline
+
+            settings = ExtractionSettings.model_validate(json.loads(sys.stdin.read() or "{}"))
+            data = incoming.read_bytes()
+            verification = pipeline(args.filename, data, settings)
+            fields = extract_fields(settings, args.sensitivity, args.filename, data)
+            verification["field_assessment"] = fields
+            if fields["status"] == "HUMAN_REQUIRED" or fields.get("requires_human"):
+                verification["status"] = "HUMAN_REQUIRED"
+            output = {
+                "result": verification["result"],
+                "error": verification["error"],
+                "verification": verification,
+            }
         except Exception:
             output = {"error": "extraction_failed"}
         outgoing.write_text(json.dumps(output), encoding="utf-8")
@@ -175,6 +231,10 @@ def main():
         while True:
             try:
                 worked = run_once(sessions)
+                from northstar.ai.worker import run_review_once
+
+                reviewed = run_review_once(sessions)
+                worked = worked or reviewed
             except SQLAlchemyError:
                 # Leave the claim to expire; never publish partial sections.
                 logger.error("extraction_storage_unavailable")

@@ -1,1 +1,1 @@
-"""Home for model gateway and workflow code in C06–C07; no provider calls yet."""
+"""Policy-routed document review; the support-workflow gateway remains a later feature."""

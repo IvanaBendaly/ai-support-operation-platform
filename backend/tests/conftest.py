@@ -14,6 +14,21 @@ from northstar.seed import seed
 AS_OF = date(2026, 10, 12)
 
 
+@pytest.fixture(autouse=True)
+def private_test_objects(tmp_path, monkeypatch, request):
+    if request.module.__name__ in {
+        "test_knowledge",
+        "test_retrieval",
+        "test_extraction_worker",
+        "test_document_review",
+        "test_object_storage",
+        "test_extraction_verification",
+    }:
+        monkeypatch.setenv("NORTHSTAR_STORAGE__BACKEND", "filesystem")
+    monkeypatch.setenv("NORTHSTAR_STORAGE__DIRECTORY", str(tmp_path / "objects"))
+    monkeypatch.setenv("NORTHSTAR_REVIEW__PROVIDER", "disabled")
+
+
 @pytest.fixture(scope="session")
 def postgres_engine():
     url = os.getenv("NORTHSTAR_TEST_DATABASE_URL")
@@ -38,8 +53,14 @@ def postgres_engine():
 
 
 @pytest.fixture
-def postgres_business(postgres_engine):
+def postgres_business(postgres_engine, tmp_path):
+    from northstar.config import StorageSettings
+    from northstar.storage import ObjectStore
+
     sessions = session_factory(postgres_engine)
+    sessions.kw["info"]["object_store"] = ObjectStore(
+        StorageSettings(backend="filesystem", directory=str(tmp_path / "objects"))
+    )
     with sessions.begin() as session:
         seed(session, AS_OF)
     yield sessions, BusinessService(sessions, today=lambda: AS_OF)

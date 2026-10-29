@@ -42,5 +42,7 @@ jobs:
       - run: npm install --global pnpm@11.25.0
       - run: python scripts/dev.py setup
       - run: curl --fail http://localhost:8080/api/ready
+      - name: Verify private MinIO roundtrip
+        run: docker compose exec -e NORTHSTAR_TEST_MINIO=1 backend python -m pytest tests/test_object_storage.py -k live_minio -q
       - if: always()
         run: docker compose down
